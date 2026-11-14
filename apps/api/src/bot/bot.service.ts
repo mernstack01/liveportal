@@ -1,10 +1,11 @@
 import { Injectable, Logger, OnApplicationBootstrap, OnApplicationShutdown } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { Bot, InlineKeyboard } from 'grammy';
+import { Bot, type Context, InlineKeyboard } from 'grammy';
+import type { User } from 'grammy/types';
 import { NOT_INVITED_MESSAGE } from '../auth/auth.service.js';
 import type { Env } from '../config/env.js';
 import { PrismaService } from '../db/prisma.service.js';
-import { INVITE_PREFIX } from '../invites/invite-record.js';
+import { extractInviteToken } from '../invites/invite-record.js';
 import { InviteError, InvitesService, type InviteErrorCode } from '../invites/invites.service.js';
 
 const INVITE_ERRORS: Record<InviteErrorCode, string> = {
@@ -60,33 +61,26 @@ export class BotService implements OnApplicationBootstrap, OnApplicationShutdown
   }
 
   private register(bot: Bot): void {
+    // Har bir kelgan xabar logga: "bot jim" holatlarini tez topish uchun. Taklif tokeni yashiriladi.
+    bot.use(async (ctx, next) => {
+      const text = ctx.message?.text?.replace(/inv_\S+/g, 'inv_***');
+      const kind = Object.keys(ctx.update).filter((k) => k !== 'update_id').join(',');
+      this.logger.log(`Update ${ctx.update.update_id} from ${ctx.from?.id ?? '?'} (${ctx.chat?.type ?? '?'}): ${text ?? kind}`);
+      await next();
+    });
+
     const privateChat = bot.chatType('private');
 
     privateChat.command('start', async (ctx) => {
-      const payload = ctx.match.trim();
-      const from = ctx.from;
-
-      if (payload.startsWith(INVITE_PREFIX)) {
-        try {
-          const accepted = await this.invites.accept(payload.slice(INVITE_PREFIX.length), from);
-          await ctx.reply(
-            `Xush kelibsiz, ${accepted.userName}!\n\nSiz «${accepted.workspaceName}» ga «${accepted.role}» sifatida qo‘shildingiz. ` +
-              `Endi tasklar va eslatmalar shu yerga keladi.\n\nPortal: ${this.webOrigin()}`,
-            { reply_markup: this.portalKeyboard() },
-          );
-        } catch (error) {
-          if (error instanceof InviteError) {
-            await ctx.reply(INVITE_ERRORS[error.code]);
-            return;
-          }
-          throw error;
-        }
+      const token = extractInviteToken(ctx.match);
+      if (token) {
+        await this.acceptInvite(ctx, token);
         return;
       }
 
-      const user = await this.prisma.user.findUnique({ where: { telegramId: BigInt(from.id) } });
+      const user = await this.prisma.user.findUnique({ where: { telegramId: BigInt(ctx.from.id) } });
       if (!user) {
-        await ctx.reply(NOT_INVITED_MESSAGE);
+        await ctx.reply(`${NOT_INVITED_MESSAGE}\n\nHavola sizda bo‘lsa, uni shu chatga yuboring.`);
         return;
       }
       await ctx.reply(`Salom, ${user.name}! Portal: ${this.webOrigin()}`, { reply_markup: this.portalKeyboard() });
@@ -95,6 +89,33 @@ export class BotService implements OnApplicationBootstrap, OnApplicationShutdown
     privateChat.command('help', (ctx) =>
       ctx.reply('Buyruqlar:\n/start — portal havolasi\n/help — yordam\n\nTez orada: /mytasks, /today'),
     );
+
+    // Havola yoki `inv_...` kodi oddiy xabar sifatida yuborilsa ham qabul qilinadi.
+    privateChat.on('message:text', async (ctx) => {
+      const token = extractInviteToken(ctx.message.text);
+      if (token) {
+        await this.acceptInvite(ctx, token);
+        return;
+      }
+      await ctx.reply('Tushunmadim. Buyruqlar ro‘yxati: /help');
+    });
+  }
+
+  private async acceptInvite(ctx: Context & { from: User }, token: string): Promise<void> {
+    try {
+      const accepted = await this.invites.accept(token, ctx.from);
+      await ctx.reply(
+        `Xush kelibsiz, ${accepted.userName}!\n\nSiz «${accepted.workspaceName}» ga «${accepted.role}» sifatida qo‘shildingiz. ` +
+          `Endi tasklar va eslatmalar shu yerga keladi.\n\nPortal: ${this.webOrigin()}`,
+        { reply_markup: this.portalKeyboard() },
+      );
+    } catch (error) {
+      if (error instanceof InviteError) {
+        await ctx.reply(INVITE_ERRORS[error.code]);
+        return;
+      }
+      throw error;
+    }
   }
 
   private webOrigin(): string {

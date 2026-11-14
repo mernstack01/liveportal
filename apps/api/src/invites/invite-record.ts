@@ -4,6 +4,15 @@ import type { PrismaClient } from '../generated/prisma/client.js';
 export const INVITE_PREFIX = 'inv_';
 export const DEFAULT_INVITE_TTL_DAYS = 7;
 
+/**
+ * Matndan taklif tokenini topadi: `inv_<token>`, `/start inv_<token>` yoki to'liq havola
+ * (`https://t.me/<bot>?start=inv_<token>`). Telegram ba'zan havolani bosganda kodni yubormaydi,
+ * shunda odam havolani chatga o'zi yuboradi.
+ */
+export function extractInviteToken(text: string): string | undefined {
+  return /(?:^|[\s=])inv_([A-Za-z0-9_-]{16,})/.exec(text.trim())?.[1];
+}
+
 export interface CreatedInvite {
   id: string;
   token: string;
