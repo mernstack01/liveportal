@@ -1,0 +1,21 @@
+{
+  "name": "liveportal",
+  "private": true,
+  "packageManager": "pnpm@11.7.0",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "dev": "pnpm -r --parallel run dev",
+    "build": "pnpm -r run build",
+    "lint": "pnpm -r run lint",
+    "test": "pnpm -r run test",
+    "infra:up": "docker compose up -d --wait",
+    "infra:down": "docker compose down",
+    "db:migrate": "pnpm --filter @liveportal/api db:migrate",
+    "db:seed": "pnpm --filter @liveportal/api db:seed"
+  },
+  "devDependencies": {
+    "typescript": "^6.0.3"
+  }
+}

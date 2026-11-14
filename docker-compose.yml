@@ -1,0 +1,38 @@
+# Faqat lokal ishlab chiqish uchun. Production sozlamalari alohida.
+# Portlar boshqa loyihalar (5432, 5433, 6380) bilan to'qnashmasligi uchun 5434 va 6381.
+name: liveportal
+
+services:
+  postgres:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_USER: liveportal
+      POSTGRES_PASSWORD: liveportal_dev
+      POSTGRES_DB: liveportal
+      TZ: UTC
+    ports:
+      - "127.0.0.1:5434:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U liveportal -d liveportal"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:8-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "127.0.0.1:6381:6379"
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  pgdata:
+  redisdata:

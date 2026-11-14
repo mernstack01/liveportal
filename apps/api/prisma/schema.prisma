@@ -1,0 +1,304 @@
+// LivePortal — ma'lumotlar bazasi sxemasi.
+// Domen modeli: docs/03-domain-model.md. MVP-0 da Channel/Message/TaskDependency uchun kod yozilmaydi (docs/09).
+
+// Prisma 7: ulanish URL'i prisma.config.ts da, client esa adapter (@prisma/adapter-pg) bilan.
+generator client {
+  provider     = "prisma-client"
+  output       = "../src/generated/prisma"
+  moduleFormat = "esm"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ───────────── Identity & access ─────────────
+
+model User {
+  id          String   @id @default(cuid())
+  name        String
+  email       String?  @unique
+  phone       String?  @unique
+  telegramId  BigInt?  @unique
+  telegramUsername String?
+  avatarUrl   String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  workspaces     WorkspaceMember[]
+  projects       ProjectMember[]
+  assignedTasks  Task[]          @relation("assignee")
+  reportedTasks  Task[]          @relation("reporter")
+  comments       Comment[]
+  messages       Message[]
+  notifications  Notification[]
+}
+
+model Workspace {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  settings  Json     @default("{}") // feature flags, til, default workflow ...
+  createdAt DateTime @default(now())
+
+  members   WorkspaceMember[]
+  roles     Role[]
+  projects  Project[]
+  channels  Channel[]
+  rules     NotificationRule[]
+  events    Event[]
+}
+
+model Role {
+  id          String   @id @default(cuid())
+  workspaceId String
+  name        String   // owner, admin, teamlead, member, guest, ... (yangi rol = yangi qator)
+  scope       RoleScope
+  permissions String[] // ['project.create', 'task.assign', ...]
+  isSystem    Boolean  @default(false)
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id])
+  workspaceMembers WorkspaceMember[]
+  projectMembers   ProjectMember[]
+
+  @@unique([workspaceId, name])
+}
+
+enum RoleScope {
+  WORKSPACE
+  PROJECT
+}
+
+model WorkspaceMember {
+  workspaceId String
+  userId      String
+  roleId      String
+  joinedAt    DateTime @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id])
+  user      User      @relation(fields: [userId], references: [id])
+  role      Role      @relation(fields: [roleId], references: [id])
+
+  @@id([workspaceId, userId])
+}
+
+// ───────────── Projects & tasks ─────────────
+
+model Project {
+  id           String        @id @default(cuid())
+  workspaceId  String
+  key          String        // "LP" -> LP-1, LP-2 ...
+  name         String
+  description  String?
+  status       ProjectStatus @default(ACTIVE)
+  startDate    DateTime?
+  dueDate      DateTime?
+  customFields Json          @default("{}")
+  taskCounter  Int           @default(0)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  workspace Workspace        @relation(fields: [workspaceId], references: [id])
+  members   ProjectMember[]
+  statuses  WorkflowStatus[]
+  tasks     Task[]
+  channels  Channel[]
+
+  @@unique([workspaceId, key])
+}
+
+enum ProjectStatus {
+  PLANNING
+  ACTIVE
+  ON_HOLD
+  COMPLETED
+  ARCHIVED
+}
+
+model ProjectMember {
+  projectId String
+  userId    String
+  roleId    String
+  joinedAt  DateTime @default(now())
+
+  project Project @relation(fields: [projectId], references: [id])
+  user    User    @relation(fields: [userId], references: [id])
+  role    Role    @relation(fields: [roleId], references: [id])
+
+  @@id([projectId, userId])
+}
+
+model WorkflowStatus {
+  id        String         @id @default(cuid())
+  projectId String
+  name      String
+  category  StatusCategory // dashboard shu bo'yicha hisoblaydi
+  color     String?
+  order     Int
+
+  project Project @relation(fields: [projectId], references: [id])
+  tasks   Task[]
+}
+
+enum StatusCategory {
+  TODO
+  IN_PROGRESS
+  REVIEW
+  DONE
+  CANCELED
+}
+
+model Task {
+  id           String    @id @default(cuid())
+  projectId    String
+  number       Int       // LP-<number>
+  title        String
+  description  String?
+  statusId     String
+  priority     Priority  @default(MEDIUM)
+  assigneeId   String?
+  reporterId   String
+  parentId     String?
+  dueDate      DateTime?
+  estimate     Int?      // soat yoki story point — ❓
+  customFields Json      @default("{}")
+  completedAt  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  project  Project        @relation(fields: [projectId], references: [id])
+  status   WorkflowStatus @relation(fields: [statusId], references: [id])
+  assignee User?          @relation("assignee", fields: [assigneeId], references: [id])
+  reporter User           @relation("reporter", fields: [reporterId], references: [id])
+  parent   Task?          @relation("subtasks", fields: [parentId], references: [id])
+  subtasks Task[]         @relation("subtasks")
+  comments Comment[]
+  blocks    TaskDependency[] @relation("from")
+  blockedBy TaskDependency[] @relation("to")
+
+  @@unique([projectId, number])
+  @@index([assigneeId, statusId])
+  @@index([dueDate])
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+model TaskDependency {
+  fromTaskId String
+  toTaskId   String
+  type       String @default("blocks")
+
+  from Task @relation("from", fields: [fromTaskId], references: [id])
+  to   Task @relation("to", fields: [toTaskId], references: [id])
+
+  @@id([fromTaskId, toTaskId])
+}
+
+model Comment {
+  id        String   @id @default(cuid())
+  taskId    String
+  authorId  String
+  body      String
+  mentions  String[] // userId'lar
+  createdAt DateTime @default(now())
+  editedAt  DateTime?
+
+  task   Task @relation(fields: [taskId], references: [id])
+  author User @relation(fields: [authorId], references: [id])
+}
+
+// ───────────── Communication ─────────────
+
+model Channel {
+  id             String      @id @default(cuid())
+  workspaceId    String
+  projectId      String?
+  type           ChannelType
+  name           String
+  telegramChatId BigInt?     // bog'langan TG guruh
+  telegramTopicId Int?       // forum topic
+  createdAt      DateTime    @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id])
+  project   Project?  @relation(fields: [projectId], references: [id])
+  messages  Message[]
+}
+
+enum ChannelType {
+  INTERNAL
+  EXTERNAL
+  DIRECT
+  ANNOUNCEMENT
+}
+
+model Message {
+  id        String        @id @default(cuid())
+  channelId String
+  authorId  String?       // tashqi odam bo'lsa null bo'lishi mumkin
+  externalAuthor Json?    // { name, telegramId } — ro'yxatdan o'tmagan tashqi foydalanuvchi
+  body      String
+  source    MessageSource @default(PORTAL)
+  replyToId String?
+  createdAt DateTime      @default(now())
+
+  channel Channel @relation(fields: [channelId], references: [id])
+  author  User?   @relation(fields: [authorId], references: [id])
+}
+
+enum MessageSource {
+  PORTAL
+  TELEGRAM
+}
+
+// ───────────── Events & notifications ─────────────
+
+/// Har bir domen hodisasi. Outbox sifatida ham ishlaydi (publishedAt = null → hali yuborilmagan).
+model Event {
+  id          String    @id @default(cuid())
+  workspaceId String
+  type        String    // 'task.assigned', 'project.created' ...
+  actorId     String?
+  entityType  String
+  entityId    String
+  payload     Json
+  createdAt   DateTime  @default(now())
+  publishedAt DateTime?
+
+  workspace     Workspace      @relation(fields: [workspaceId], references: [id])
+  notifications Notification[]
+
+  @@index([entityType, entityId])
+  @@index([publishedAt])
+}
+
+model NotificationRule {
+  id          String   @id @default(cuid())
+  workspaceId String
+  eventType   String   // 'task.overdue'
+  conditions  Json     @default("{}") // { priority: ['HIGH','URGENT'] }
+  recipients  Json     // { roles: ['teamlead'], fields: ['assignee'] }
+  channels    String[] // ['telegram', 'in_app']
+  enabled     Boolean  @default(true)
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id])
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  eventId   String
+  channel   String   // 'telegram' | 'in_app' | 'email' ...
+  status    String   @default("pending") // pending | sent | failed
+  readAt    DateTime?
+  createdAt DateTime @default(now())
+
+  user  User  @relation(fields: [userId], references: [id])
+  event Event @relation(fields: [eventId], references: [id])
+
+  @@index([userId, readAt])
+}
