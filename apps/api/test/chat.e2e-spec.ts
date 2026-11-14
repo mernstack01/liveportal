@@ -68,6 +68,7 @@ describe('Ichki chat (e2e)', () => {
     const events = await prisma.event.findMany({ where: { entityId: { in: [projectId, ...messageIds] } }, select: { id: true } });
     await prisma.notification.deleteMany({ where: { OR: [{ eventId: { in: events.map((e) => e.id) } }, { userId: { in: userIds } }] } });
     await prisma.event.deleteMany({ where: { id: { in: events.map((e) => e.id) } } });
+    await prisma.attachment.deleteMany({ where: { messageId: { in: messageIds } } });
     await prisma.message.deleteMany({ where: { id: { in: messageIds } } });
     await prisma.channel.deleteMany({ where: { projectId } });
     await prisma.workflowStatus.deleteMany({ where: { projectId } });
@@ -113,5 +114,74 @@ describe('Ichki chat (e2e)', () => {
   it('arxivdagi loyihada yozib bo‘lmaydi', async () => {
     await http().patch(`/api/v1/projects/${projectId}`).set(as('lead')).send({ status: 'ARCHIVED' }).expect(200);
     await http().post(chat()).set(as('dev')).send({ body: 'kech qoldim' }).expect(409);
+  });
+
+  describe('fayllar', () => {
+    const png = Buffer.from('89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c4890000000d4944415478da63f8ffff3f0005fe02fea7d6a4a10000000049454e44ae426082', 'hex');
+    let imageUrl: string;
+    let pdfUrl: string;
+
+    beforeAll(async () => {
+      // Oldingi test loyihani arxivladi — fayl testlari uchun qaytaramiz.
+      await http().patch(`/api/v1/projects/${projectId}`).set(as('lead')).send({ status: 'ACTIVE' }).expect(200);
+    });
+
+    it('matn + rasm + PDF bitta xabarda; nomlar o‘zbekcha saqlanadi', async () => {
+      const res = await http()
+        .post(chat())
+        .set(as('dev'))
+        .field('body', 'Skrinshot va hisobot')
+        .attach('files', png, { filename: 'to‘lov xatosi.png', contentType: 'image/png' })
+        .attach('files', Buffer.from('%PDF-1.7 hisobot'), { filename: 'Hisobot.pdf', contentType: 'application/pdf' })
+        .expect(201);
+      expect(res.body.body).toBe('Skrinshot va hisobot');
+      expect(res.body.attachments).toEqual([
+        expect.objectContaining({ fileName: 'to‘lov xatosi.png', kind: 'image', mimeType: 'image/png', size: png.length }),
+        expect.objectContaining({ fileName: 'Hisobot.pdf', kind: 'file', mimeType: 'application/pdf' }),
+      ]);
+      [imageUrl, pdfUrl] = res.body.attachments.map((a: { url: string }) => a.url);
+    });
+
+    it('imzolangan havola: rasm brauzerda, PDF faqat yuklab olinadi; imzosiz yoki buzilgan — 403', async () => {
+      const img = await http().get(imageUrl).expect(200);
+      expect(img.headers['content-type']).toBe('image/png');
+      expect(img.headers['content-disposition']).toMatch(/^inline;/);
+      expect(img.headers['x-content-type-options']).toBe('nosniff');
+      expect(Buffer.from(img.body).equals(png)).toBe(true);
+
+      const pdf = await http().get(pdfUrl).buffer(true).expect(200);
+      expect(pdf.headers['content-type']).toBe('application/octet-stream');
+      expect(pdf.headers['content-disposition']).toMatch(/^attachment;/);
+
+      const id = imageUrl.split('/files/')[1].split('?')[0];
+      await http().get(`/api/v1/files/${id}`).expect(403);
+      await http().get(imageUrl.replace(/sig=[^&]+/, 'sig=buzilgan')).expect(403);
+      await http().get(imageUrl.replace(/exp=\d+/, 'exp=1')).expect(403);
+    });
+
+    it('rasm deb nomlangan HTML rasm sifatida berilmaydi (XSS himoyasi)', async () => {
+      const res = await http()
+        .post(chat())
+        .set(as('dev'))
+        .attach('files', Buffer.from('<html><script>alert(1)</script></html>'), { filename: 'surat.png', contentType: 'image/png' })
+        .expect(201);
+      expect(res.body.body).toBe('');
+      expect(res.body.attachments[0]).toMatchObject({ kind: 'file' });
+      const file = await http().get(res.body.attachments[0].url).buffer(true).expect(200);
+      expect(file.headers['content-type']).toBe('application/octet-stream');
+    });
+
+    it('mehmon fayl yubora olmaydi; ro‘yxatda fayllar havola bilan keladi; mention xabarida fayl soni', async () => {
+      await http().post(chat()).set(as('guest')).attach('files', png, 'x.png').expect(403);
+
+      await http().post(chat()).set(as('lead')).field('body', `@${username('dev')} qarang`).attach('files', png, 'a.png').expect(201);
+      await flush();
+      const sent = telegram.sent.splice(0);
+      expect(sent.find((s) => s.chatId === String(tg.dev))?.message.text).toContain('📎 1 ta fayl');
+
+      const list = await http().get(chat()).set(as('dev')).expect(200);
+      const last = list.body.messages.at(-1);
+      expect(last.attachments[0].url).toMatch(/^\/api\/v1\/files\/.+\?exp=\d+&sig=/);
+    });
   });
 });

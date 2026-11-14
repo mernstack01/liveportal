@@ -1,22 +1,21 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
+import { useEffect, useMemo, useRef, useState, type ClipboardEvent, type DragEvent, type FormEvent } from 'react'
 import { api } from '../api'
 import { Avatar, Button, ErrorText } from '../components/ui'
 import { todayStr } from '../labels'
 import { MentionText } from '../task/MentionText'
-import type { ChatMessage, ChatPage, ProjectDetail } from '../types'
+import type { ChatAttachment, ChatMessage, ChatPage, ProjectDetail } from '../types'
 
 const chatKey = (projectId: string) => ['chat', projectId] as const
+const MAX_FILES = 10
+const MAX_MB = 20
 
 function dayLabel(iso: string): string {
-  const d = new Date(iso)
-  const day = todayStr(d)
-  const today = todayStr()
-  const yesterday = todayStr(new Date(Date.now() - 86_400_000))
-  if (day === today) return 'Bugun'
-  if (day === yesterday) return 'Kecha'
-  const [y, m, dd] = day.split('-')
-  return `${dd}.${m}.${y}`
+  const day = todayStr(new Date(iso))
+  if (day === todayStr()) return 'Bugun'
+  if (day === todayStr(new Date(Date.now() - 86_400_000))) return 'Kecha'
+  const [y, m, d] = day.split('-')
+  return `${d}.${m}.${y}`
 }
 
 const time = (iso: string) => {
@@ -24,7 +23,64 @@ const time = (iso: string) => {
   return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
 }
 
-/** Loyihaning ichki chati: faqat xodimlar (mehmon/mijoz ko'rmaydi). Har 4 soniyada yangilanadi. */
+function fileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`
+  return `${(bytes / 1024 / 1024).toFixed(1)} MB`
+}
+
+/** Xabardagi fayllar: rasmlar ko'rinadi (bosilsa — to'liq hajmda), qolgani yuklab olinadi. */
+function Attachments({ items, mine, onMediaLoad }: { items: ChatAttachment[]; mine: boolean; onMediaLoad: () => void }) {
+  const images = items.filter((a) => a.kind === 'image')
+  const files = items.filter((a) => a.kind !== 'image')
+  return (
+    <div className="space-y-1.5">
+      {images.length > 0 && (
+        <div className={`grid gap-1 ${images.length === 1 ? 'grid-cols-1' : 'grid-cols-2'}`}>
+          {images.map((a) => (
+            <a key={a.id} href={a.url} target="_blank" rel="noreferrer" title={a.fileName} className="block overflow-hidden rounded-lg bg-slate-200">
+              <img
+                src={a.url}
+                alt={a.fileName}
+                loading="lazy"
+                onLoad={onMediaLoad}
+                className={images.length === 1 ? 'max-h-72 w-full max-w-xs object-contain' : 'aspect-square w-36 object-cover'}
+              />
+            </a>
+          ))}
+        </div>
+      )}
+      {files.map((a) => (
+        <a
+          key={a.id}
+          href={a.url}
+          download={a.fileName}
+          className={`flex max-w-xs items-center gap-2.5 rounded-lg px-3 py-2 text-sm ${mine ? 'bg-white/15 text-white hover:bg-white/25' : 'bg-white text-slate-800 ring-1 ring-slate-200 hover:ring-slate-400'}`}
+        >
+          <span aria-hidden className="text-lg">
+            📄
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block truncate font-medium">{a.fileName}</span>
+            <span className={`text-xs ${mine ? 'text-white/70' : 'text-slate-500'}`}>{fileSize(a.size)} · yuklab olish</span>
+          </span>
+        </a>
+      ))}
+    </div>
+  )
+}
+
+/** Yuborishdan oldingi fayl: rasm bo'lsa — kichik ko'rinish. */
+interface Pending {
+  key: string
+  file: File
+  preview: string | null
+}
+
+/**
+ * Loyihaning ichki chati: faqat xodimlar (mehmon/mijoz ko'rmaydi). Har 4 soniyada yangilanadi.
+ * O'zingizning xabarlaringiz — o'ngda, boshqalarniki — chapda. Fayl: 📎, Ctrl/⌘+V bilan rasm, yoki sudrab tashlash.
+ */
 export function ChatPanel({ project, userId }: { project: ProjectDetail; userId: string }) {
   const queryClient = useQueryClient()
   const latest = useQuery({
@@ -35,8 +91,13 @@ export function ChatPanel({ project, userId }: { project: ProjectDetail; userId:
   const [older, setOlder] = useState<ChatMessage[]>([])
   const [olderHasMore, setOlderHasMore] = useState<boolean | null>(null)
   const [body, setBody] = useState('')
+  const [pending, setPending] = useState<Pending[]>([])
+  const [notice, setNotice] = useState<string | null>(null)
+  const [dragging, setDragging] = useState(false)
   const bottom = useRef<HTMLDivElement>(null)
+  const scroller = useRef<HTMLDivElement>(null)
   const textarea = useRef<HTMLTextAreaElement>(null)
+  const fileInput = useRef<HTMLInputElement>(null)
 
   const messages = useMemo(() => {
     const seen = new Set<string>()
@@ -45,10 +106,41 @@ export function ChatPanel({ project, userId }: { project: ProjectDetail; userId:
   const hasMore = olderHasMore ?? latest.data?.hasMore ?? false
   const lastId = latest.data?.messages.at(-1)?.id
 
-  // Yangi xabar kelganda pastga
   useEffect(() => {
     bottom.current?.scrollIntoView({ block: 'end' })
   }, [lastId])
+
+  // Rasm keyinroq yuklanib balandlik oshadi: odam pastda tursa, oxirigacha tushamiz (yuqorida o'qiyotgan bo'lsa — tegmaymiz).
+  const keepBottom = () => {
+    const el = scroller.current
+    if (el && el.scrollHeight - el.scrollTop - el.clientHeight < 600) bottom.current?.scrollIntoView({ block: 'end' })
+  }
+
+  const addFiles = (list: FileList | File[]) => {
+    const incoming = [...list]
+    const tooBig = incoming.filter((f) => f.size > MAX_MB * 1024 * 1024)
+    const ok = incoming.filter((f) => f.size <= MAX_MB * 1024 * 1024)
+    const room = MAX_FILES - pending.length
+    if (tooBig.length > 0) setNotice(`${tooBig.map((f) => f.name).join(', ')}: ${MAX_MB} MB dan katta`)
+    else if (ok.length > room) setNotice(`Bitta xabarda ko‘pi bilan ${MAX_FILES} ta fayl`)
+    else setNotice(null)
+    setPending((p) => [
+      ...p,
+      ...ok.slice(0, Math.max(0, room)).map((file) => ({
+        key: `${file.name}-${file.size}-${Math.random()}`,
+        file,
+        preview: file.type.startsWith('image/') ? URL.createObjectURL(file) : null,
+      })),
+    ])
+  }
+
+  /** Kichik ko'rinish uchun yaratilgan URL xotiradan tozalanadi. */
+  const dropPending = (keys: Set<string> | 'all') =>
+    setPending((list) => {
+      const removed = keys === 'all' ? list : list.filter((p) => keys.has(p.key))
+      removed.forEach((p) => p.preview && URL.revokeObjectURL(p.preview))
+      return keys === 'all' ? [] : list.filter((p) => !keys.has(p.key))
+    })
 
   const loadOlder = useMutation({
     mutationFn: () => api<ChatPage>(`/projects/${project.id}/chat?before=${messages[0]?.id ?? ''}`),
@@ -59,9 +151,16 @@ export function ChatPanel({ project, userId }: { project: ProjectDetail; userId:
   })
 
   const send = useMutation({
-    mutationFn: () => api<ChatMessage>(`/projects/${project.id}/chat`, { method: 'POST', body: JSON.stringify({ body }) }),
+    mutationFn: () => {
+      const form = new FormData()
+      form.append('body', body)
+      pending.forEach((p) => form.append('files', p.file, p.file.name))
+      return api<ChatMessage>(`/projects/${project.id}/chat`, { method: 'POST', body: form })
+    },
     onSuccess: (message) => {
       setBody('')
+      dropPending('all')
+      setNotice(null)
       queryClient.setQueryData<ChatPage>(chatKey(project.id), (page) => (page ? { ...page, messages: [...page.messages, message] } : page))
     },
   })
@@ -75,19 +174,46 @@ export function ChatPanel({ project, userId }: { project: ProjectDetail; userId:
   const partial = /(?:^|\s)@([A-Za-z0-9_]*)$/.exec(body)?.[1]
   const suggestions = partial === undefined ? [] : mentionable.filter((m) => m.telegramUsername!.toLowerCase().startsWith(partial.toLowerCase())).slice(0, 5)
 
+  const canWrite = !!latest.data?.canWrite && project.status !== 'ARCHIVED'
   const submit = (e: FormEvent) => {
     e.preventDefault()
-    if (body.trim() && !send.isPending) send.mutate()
+    if ((body.trim() || pending.length > 0) && !send.isPending) send.mutate()
+  }
+  const onPaste = (e: ClipboardEvent) => {
+    const files = [...e.clipboardData.files]
+    if (files.length > 0) {
+      e.preventDefault()
+      addFiles(files)
+    }
+  }
+  const onDrop = (e: DragEvent) => {
+    e.preventDefault()
+    setDragging(false)
+    if (canWrite && e.dataTransfer.files.length > 0) addFiles(e.dataTransfer.files)
   }
 
   return (
-    <section className="mx-auto flex h-[calc(100vh-14rem)] min-h-[420px] max-w-4xl flex-col overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-slate-200">
+    <section
+      onDragOver={(e) => {
+        if (!canWrite) return
+        e.preventDefault()
+        setDragging(true)
+      }}
+      onDragLeave={(e) => e.currentTarget === e.target && setDragging(false)}
+      onDrop={onDrop}
+      className={`relative mx-auto flex h-[calc(100vh-14rem)] min-h-[440px] max-w-4xl flex-col overflow-hidden rounded-xl bg-white shadow-sm ring-1 ${dragging ? 'ring-2 ring-sky-500' : 'ring-slate-200'}`}
+    >
+      {dragging && (
+        <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center bg-sky-50/90 text-base font-medium text-sky-800">
+          Fayllarni shu yerga tashlang
+        </div>
+      )}
       <header className="flex items-center justify-between gap-3 border-b border-slate-100 px-4 py-2.5">
         <h2 className="text-sm font-semibold">Jamoa chati</h2>
         <span className="text-xs text-slate-500">🔒 Faqat xodimlar ko‘radi — mehmon va mijozlar ko‘rmaydi</span>
       </header>
 
-      <div className="flex-1 space-y-1 overflow-y-auto px-4 py-3">
+      <div ref={scroller} className="flex-1 overflow-y-auto bg-slate-50/60 px-4 py-3">
         {latest.isPending && <p className="py-8 text-center text-sm text-slate-500">Yuklanmoqda…</p>}
         <ErrorText error={latest.error} />
         {hasMore && (
@@ -109,18 +235,22 @@ export function ChatPanel({ project, userId }: { project: ProjectDetail; userId:
             <div key={m.id}>
               {newDay && (
                 <div className="my-3 flex justify-center">
-                  <span className="rounded-full bg-slate-100 px-3 py-0.5 text-xs text-slate-500">{dayLabel(m.createdAt)}</span>
+                  <span className="rounded-full bg-white px-3 py-0.5 text-xs text-slate-500 ring-1 ring-slate-200">{dayLabel(m.createdAt)}</span>
                 </div>
               )}
-              <div className={`flex gap-3 ${grouped ? 'pl-12' : 'pt-2'}`}>
-                {!grouped && (m.author ? <Avatar person={m.author} /> : <span className="size-9" />)}
-                <div className="min-w-0 flex-1">
-                  {!grouped && (
-                    <p className="text-xs text-slate-500">
-                      <span className={`font-semibold ${mine ? 'text-sky-700' : 'text-slate-800'}`}>{m.author?.name ?? 'O‘chirilgan foydalanuvchi'}</span> · {time(m.createdAt)}
-                    </p>
-                  )}
-                  <MentionText text={m.body} usernames={usernames} />
+              <div className={`flex items-end gap-2 ${mine ? 'justify-end' : 'justify-start'} ${grouped ? 'mt-0.5' : 'mt-3'}`}>
+                {!mine && (grouped ? <span className="w-9 shrink-0" /> : m.author ? <Avatar person={m.author} /> : <span className="size-9 shrink-0" />)}
+                <div className={`flex max-w-[78%] flex-col ${mine ? 'items-end' : 'items-start'}`}>
+                  {!mine && !grouped && <p className="mb-0.5 px-1 text-xs font-semibold text-slate-700">{m.author?.name ?? 'O‘chirilgan foydalanuvchi'}</p>}
+                  <div
+                    className={`space-y-1.5 px-3 py-2 shadow-sm ${
+                      mine ? 'rounded-2xl rounded-br-md bg-[#2a78d6] text-white' : 'rounded-2xl rounded-bl-md bg-white text-slate-900 ring-1 ring-slate-200'
+                    }`}
+                  >
+                    {m.attachments.length > 0 && <Attachments items={m.attachments} mine={mine} onMediaLoad={keepBottom} />}
+                    {m.body && <MentionText text={m.body} usernames={usernames} onDark={mine} />}
+                    <p className={`text-right text-[11px] leading-none ${mine ? 'text-white/70' : 'text-slate-400'}`}>{time(m.createdAt)}</p>
+                  </div>
                 </div>
               </div>
             </div>
@@ -129,8 +259,8 @@ export function ChatPanel({ project, userId }: { project: ProjectDetail; userId:
         <div ref={bottom} />
       </div>
 
-      {latest.data?.canWrite && project.status !== 'ARCHIVED' ? (
-        <form onSubmit={submit} className="relative border-t border-slate-100 p-3">
+      {canWrite ? (
+        <form onSubmit={submit} className="relative border-t border-slate-100 bg-white p-3">
           {suggestions.length > 0 && (
             <ul role="listbox" aria-label="Kimni belgilash" className="absolute bottom-full left-3 z-10 mb-1 w-64 overflow-hidden rounded-md bg-white shadow-lg ring-1 ring-slate-200">
               {suggestions.map((m) => (
@@ -153,21 +283,73 @@ export function ChatPanel({ project, userId }: { project: ProjectDetail; userId:
               ))}
             </ul>
           )}
+
+          {pending.length > 0 && (
+            <ul className="mb-2 flex flex-wrap gap-2" aria-label="Biriktirilgan fayllar">
+              {pending.map((p) => (
+                <li key={p.key} className="relative">
+                  {p.preview ? (
+                    <img src={p.preview} alt={p.file.name} className="size-16 rounded-md object-cover ring-1 ring-slate-200" />
+                  ) : (
+                    <span className="flex h-16 w-40 items-center gap-2 rounded-md bg-slate-50 px-2 text-xs ring-1 ring-slate-200">
+                      <span aria-hidden className="text-lg">
+                        📄
+                      </span>
+                      <span className="min-w-0">
+                        <span className="block truncate font-medium">{p.file.name}</span>
+                        <span className="text-slate-500">{fileSize(p.file.size)}</span>
+                      </span>
+                    </span>
+                  )}
+                  <button
+                    type="button"
+                    aria-label={`${p.file.name} ni olib tashlash`}
+                    onClick={() => dropPending(new Set([p.key]))}
+                    className="absolute -right-1.5 -top-1.5 flex size-5 items-center justify-center rounded-full bg-slate-900 text-[11px] text-white"
+                  >
+                    ✕
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+
           <div className="flex items-end gap-2">
+            <input
+              ref={fileInput}
+              type="file"
+              multiple
+              hidden
+              onChange={(e) => {
+                if (e.target.files) addFiles(e.target.files)
+                e.target.value = ''
+              }}
+            />
+            <button
+              type="button"
+              aria-label="Fayl biriktirish"
+              title="Fayl biriktirish (yoki rasmni Ctrl/⌘+V bilan joylang)"
+              onClick={() => fileInput.current?.click()}
+              className="flex size-10 shrink-0 items-center justify-center rounded-md text-lg text-slate-500 hover:bg-slate-100 hover:text-slate-800"
+            >
+              📎
+            </button>
             <textarea
               ref={textarea}
               rows={1}
               maxLength={4000}
               value={body}
               onChange={(e) => setBody(e.target.value)}
+              onPaste={onPaste}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && !e.shiftKey) submit(e)
               }}
-              placeholder="Xabar yozing… (@ — belgilash, Shift+Enter — yangi qator)"
+              placeholder="Xabar yozing… (@ — belgilash, rasmni joylash — Ctrl/⌘+V)"
               className="max-h-40 min-h-10 flex-1 resize-y rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
             />
-            <Button disabled={send.isPending || !body.trim()}>Yuborish</Button>
+            <Button disabled={send.isPending || (!body.trim() && pending.length === 0)}>{send.isPending ? 'Yuborilmoqda…' : 'Yuborish'}</Button>
           </div>
+          {notice && <p className="mt-1 text-xs text-amber-700">{notice}</p>}
           <ErrorText error={send.error} />
         </form>
       ) : (

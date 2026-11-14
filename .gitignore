@@ -16,3 +16,6 @@ deploy/backups/
 
 # Demo video (katta fayl, git emas)
 docs/media/*.mp4
+
+# Chat fayllari (lokal)
+apps/api/uploads/

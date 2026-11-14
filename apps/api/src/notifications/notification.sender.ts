@@ -158,10 +158,12 @@ export class NotificationSender implements OnApplicationBootstrap, OnApplication
     if (event.entityType === 'message') {
       const message = await this.prisma.message.findUnique({
         where: { id: event.entityId },
-        select: { body: true, channel: { select: { project: { select: { id: true, name: true } } } } },
+        select: { body: true, _count: { select: { attachments: true } }, channel: { select: { project: { select: { id: true, name: true } } } } },
       });
       const project = message?.channel.project;
-      return message && project ? { kind, recipientId, actorName: actor?.name ?? null, webOrigin, project, chatBody: message.body } : null;
+      return message && project
+        ? { kind, recipientId, actorName: actor?.name ?? null, webOrigin, project, chatBody: message.body, chatFiles: message._count.attachments }
+        : null;
     }
 
     if (event.entityType === 'project') {

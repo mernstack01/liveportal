@@ -20,7 +20,8 @@ async function raw(path: string, init?: RequestInit): Promise<Response> {
     ...init,
     credentials: 'include',
     headers: {
-      'Content-Type': 'application/json',
+      // Fayl yuborishda (FormData) brauzer chegarali multipart sarlavhani o'zi qo'yadi.
+      ...(init?.body instanceof FormData ? {} : { 'Content-Type': 'application/json' }),
       ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
       ...init?.headers,
     },

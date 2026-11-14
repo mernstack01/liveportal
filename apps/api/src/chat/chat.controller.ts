@@ -1,4 +1,5 @@
-import { Body, Controller, Get, Post, Query } from '@nestjs/common';
+import { Body, Controller, Get, Post, Query, UploadedFiles, UseInterceptors } from '@nestjs/common';
+import { FilesInterceptor } from '@nestjs/platform-express';
 import { z } from 'zod';
 import type { AuthUser, ProjectContext } from '../auth/auth.types.js';
 import { CurrentProject, CurrentUser, RequireProjectAccess } from '../auth/decorators.js';
@@ -16,9 +17,16 @@ export class ChatController {
     return this.chat.list(project, before);
   }
 
+  /** JSON ({ body }) yoki multipart (body + files[], 10 tagacha). Ruxsat guard'da — fayl saqlanishidan oldin. */
   @Post()
   @RequireProjectAccess('message.internal.write')
-  post(@Body() body: unknown, @CurrentUser() user: AuthUser, @CurrentProject() project: ProjectContext) {
-    return this.chat.post(project, user.id, parse(z.object({ body: z.string().trim().min(1).max(4000) }), body).body);
+  @UseInterceptors(FilesInterceptor('files', 10))
+  post(
+    @UploadedFiles() files: Express.Multer.File[] | undefined,
+    @Body() body: unknown,
+    @CurrentUser() user: AuthUser,
+    @CurrentProject() project: ProjectContext,
+  ) {
+    return this.chat.post(project, user.id, body, files ?? []);
   }
 }

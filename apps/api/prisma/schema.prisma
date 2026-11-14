@@ -287,8 +287,28 @@ model Message {
   replyToId      String?
   createdAt      DateTime      @default(now())
 
-  channel Channel @relation(fields: [channelId], references: [id])
-  author  User?   @relation(fields: [authorId], references: [id])
+  channel     Channel      @relation(fields: [channelId], references: [id])
+  author      User?        @relation(fields: [authorId], references: [id])
+  attachments Attachment[]
+}
+
+/// Chatga biriktirilgan fayl. Fayl diskda (UPLOAD_DIR/storageKey), bazada faqat ma'lumoti.
+model Attachment {
+  id          String   @id @default(cuid())
+  workspaceId String
+  projectId   String
+  messageId   String?
+  uploaderId  String
+  fileName    String // asl nomi (ko'rsatish uchun)
+  mimeType    String // baytlardan aniqlangan rasm turi yoki yuklagan bergani
+  kind        String // 'image' (brauzerda ochiladi) | 'file' (faqat yuklab olinadi)
+  size        Int
+  storageKey  String   @unique
+  createdAt   DateTime @default(now())
+
+  message Message? @relation(fields: [messageId], references: [id])
+
+  @@index([messageId])
 }
 
 enum MessageSource {

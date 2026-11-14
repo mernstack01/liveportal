@@ -90,7 +90,8 @@ Jonli namoyish (demo jamoa, kirish ID'lari, o'chirish buyrug'i): [docs/demo.md](
 | `POST /projects/:projectId/tasks/:taskRef/comments` | `task.comment`; `@username` faqat loyiha a'zolari uchun ishlaydi |
 | `GET /tasks/mine` (`?all=true`) | barcha loyihalardagi menga berilgan ochiq tasklar |
 | `GET`/`POST`/`PATCH`/`DELETE /roles` | ro'yxat — har kim; yaratish va tahrirlash — `role.manage` (teamlead, admin, rahbar), o'zida yo'q ruxsatni berib bo'lmaydi |
-| `GET`/`POST /projects/:projectId/chat` | ichki chat: `message.internal.read` / `.write` (mehmon ko'rmaydi); `?before=` bilan eski xabarlar |
+| `GET`/`POST /projects/:projectId/chat` | ichki chat: `message.internal.read` / `.write` (mehmon ko'rmaydi); `?before=` bilan eski xabarlar. POST multipart: `body` + `files[]` (10 tagacha, har biri `MAX_UPLOAD_MB`) |
+| `GET /files/:id?exp&sig` | imzolangan havola (1 soat). Faqat haqiqiy PNG/JPEG/GIF/WEBP brauzerda ochiladi, qolgani yuklab olinadi |
 | `GET /dashboard` | `dashboard.view_all`: loyihalar progressi, kechikkan tasklar, odamlar yuklamasi, bu hafta yopilganlar |
 
 Loyihadagi ruxsat = workspace roli + loyiha roli. Arxivdagi loyihada task yaratib ham, izoh yozib ham bo'lmaydi (409).

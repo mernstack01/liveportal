@@ -31,6 +31,10 @@ services:
       PORT: 4100
       DATABASE_URL: postgresql://liveportal:${POSTGRES_PASSWORD}@postgres:5432/liveportal
       WEB_ORIGIN: https://${DOMAIN:?deploy/.env da DOMAIN yo'q}
+      UPLOAD_DIR: /data/uploads
+    volumes:
+      # Chat fayllari: konteyner yangilansa ham saqlanadi (zaxiraga ham kiriting).
+      - uploads:/data/uploads
     depends_on:
       postgres:
         condition: service_healthy
@@ -61,5 +65,6 @@ services:
 
 volumes:
   pgdata:
+  uploads:
   caddy_data:
   caddy_config:

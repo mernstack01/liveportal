@@ -4,6 +4,7 @@ import { AuthModule } from './auth/auth.module.js';
 import { BotModule } from './bot/bot.module.js';
 import { validateEnv } from './config/env.js';
 import { ChatModule } from './chat/chat.module.js';
+import { FilesModule } from './files/files.module.js';
 import { DashboardModule } from './dashboard/dashboard.module.js';
 import { DatabaseModule } from './db/database.module.js';
 import { EventsModule } from './events/events.module.js';
@@ -31,6 +32,7 @@ import { WorkspaceModule } from './workspace/workspace.module.js';
     SchedulerModule,
     DashboardModule,
     ChatModule,
+    FilesModule,
     BotModule,
   ],
   controllers: [HealthController],

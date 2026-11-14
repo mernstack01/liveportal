@@ -41,6 +41,10 @@ export const envFields = z
     SCHEDULER_POLL_MS: z.coerce.number().int().min(0).default(60_000),
     /** Ertalabki xulosa soati, Toshkent vaqti bilan. */
     DIGEST_HOUR: z.coerce.number().int().min(0).max(23).default(9),
+    /** Chat fayllari saqlanadigan papka (API ishlayotgan joyga nisbatan yoki to'liq yo'l). */
+    UPLOAD_DIR: z.string().min(1).default('uploads'),
+    /** Bitta faylning eng katta hajmi, MB. */
+    MAX_UPLOAD_MB: z.coerce.number().int().min(1).max(200).default(20),
 
     /** Faqat lokal: Telegram Login Widget localhost'da ishlamaydi. */
     DEV_LOGIN: z.stringbool().default(false),

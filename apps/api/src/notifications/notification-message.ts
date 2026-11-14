@@ -34,6 +34,8 @@ export interface MessageInput {
   role?: string;
   /** Chat xabari (kind 'chat_mention'). */
   chatBody?: string;
+  /** Chat xabaridagi fayllar soni. */
+  chatFiles?: number;
 }
 
 /** Zaxira: odatda sender rolning bazadagi nomini (title) beradi. */
@@ -82,7 +84,10 @@ export function renderMessage(input: MessageInput): RenderedMessage {
 
   if (input.kind === 'chat_mention' && input.project) {
     return {
-      text: `💬 ${actor} sizni <b>${escapeHtml(input.project.name)}</b> chatida belgiladi\n\n<blockquote>${escapeHtml(excerpt(input.chatBody ?? ''))}</blockquote>`,
+      text:
+        `💬 ${actor} sizni <b>${escapeHtml(input.project.name)}</b> chatida belgiladi` +
+        (input.chatBody ? `\n\n<blockquote>${escapeHtml(excerpt(input.chatBody))}</blockquote>` : '') +
+        (input.chatFiles ? `\n📎 ${input.chatFiles} ta fayl` : ''),
       buttons: [openButton(input.webOrigin, `/projects/${input.project.id}/chat`)].filter((r) => r.length > 0),
     };
   }

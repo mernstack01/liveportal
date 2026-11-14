@@ -134,11 +134,22 @@ export interface RolesResponse {
   roles: RoleInfo[]
 }
 
+export interface ChatAttachment {
+  id: string
+  fileName: string
+  kind: 'image' | 'file'
+  mimeType: string
+  size: number
+  /** Imzolangan, 1 soat amal qiladi (ro'yxat yangilanganda yangilanadi). */
+  url: string
+}
+
 export interface ChatMessage {
   id: string
   body: string
   createdAt: string
   author: (Person & { telegramUsername: string | null }) | null
+  attachments: ChatAttachment[]
 }
 
 export interface ChatPage {

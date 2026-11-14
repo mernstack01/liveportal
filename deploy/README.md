@@ -97,7 +97,7 @@ crontab -e
 0 3 * * * cd /opt/liveportal/deploy && ./backup.sh >> backups/backup.log 2>&1
 ```
 
-Har kuni 03:00 da `deploy/backups/` ga yoziladi, 14 kundan eskisi o'chadi. Haftada bir marta bitta faylni serverdan tashqariga (kompyuter yoki bulut) ko'chiring. Tiklash buyrug'i `backup.sh` ning boshida yozilgan.
+Har kuni 03:00 da `deploy/backups/` ga yoziladi: baza (`liveportal-*.sql.gz`) va chat fayllari (`uploads-*.tar.gz`), 14 kundan eskisi o'chadi. Haftada bir marta bitta faylni serverdan tashqariga (kompyuter yoki bulut) ko'chiring. Tiklash buyrug'i `backup.sh` ning boshida yozilgan.
 
 ## Kundalik ishlar
 
