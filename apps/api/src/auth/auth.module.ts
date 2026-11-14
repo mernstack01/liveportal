@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
 import { JwtModule } from '@nestjs/jwt';
 import type { Env } from '../config/env.js';
+import { AccessService } from './access.service.js';
 import { AuthController } from './auth.controller.js';
 import { AuthService } from './auth.service.js';
 import { JwtAuthGuard } from './jwt-auth.guard.js';
@@ -23,10 +24,11 @@ import { PermissionsGuard } from './permissions.guard.js';
   controllers: [AuthController],
   providers: [
     AuthService,
+    AccessService,
     // Tartib muhim: avval kimligi (JWT), keyin ruxsati.
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: PermissionsGuard },
   ],
-  exports: [AuthService],
+  exports: [AuthService, AccessService],
 })
 export class AuthModule {}

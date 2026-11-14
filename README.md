@@ -2,7 +2,7 @@
 
 > IT Live Academy uchun ichki boshqaruv portali — mentorlar AI bilan qiladigan loyihalarni, tasklarni, jamoalarni va kommunikatsiyani bitta joyda boshqarish.
 
-**Holat:** 🟢 MVP-0, 2-kun tayyor: Telegram orqali kirish (Login Widget, Mini App), taklif havolalari, bot `/start`. Reja: [docs/09-fast-track.md](docs/09-fast-track.md)
+**Holat:** 🟢 MVP-0, 3-kun tayyor: Telegram orqali kirish, taklif havolalari, bot, loyihalar va a'zolar API (loyiha darajasidagi ruxsatlar bilan). Reja: [docs/09-fast-track.md](docs/09-fast-track.md)
 
 ## Muammo (qisqa)
 
@@ -61,14 +61,29 @@ pnpm dev             # api :4100, web :5173
 
 1. @BotFather → `/newbot`. Token va username'ni `apps/api/.env` ga yozing: `TELEGRAM_BOT_TOKEN`, `TELEGRAM_BOT_USERNAME`. Tokenni hech kimga yubormang.
 2. `pnpm dev` ni qayta ishga tushiring. Logda `Bot ishga tushdi: @...` chiqishi kerak.
-3. Birinchi rahbar uchun havola: `pnpm --filter @liveportal/api invite:create owner "Ism"`. Havolani oching, bot sizni workspace'ga qo'shadi.
+3. Birinchi rahbar uchun havola: `pnpm --filter @liveportal/api invite:create owner "Ism"` (liveportal papkasida). Havolani oching va Start bosing. Bot tanimasa (chat avval ochilgan bo'lsa, Telegram kodni yubormaydi), havolani chatga oddiy xabar qilib yuboring.
 4. Lokal web'ga kirish: `DEV_LOGIN=true` bo'lsa login sahifasida Telegram ID bilan kirasiz (Telegram Login Widget localhost'da ishlamaydi).
 5. Production'da: @BotFather → `/setdomain` (Login Widget uchun) va Mini App URL'i.
 
 Keyingi odamlarni portaldagi "Odam taklif qilish" bo'limidan taklif qilasiz. Har havola bir martalik va 7 kun amal qiladi.
 
 Tekshiruvlar: `pnpm test`, `pnpm --filter @liveportal/api test:e2e`, `pnpm lint`, `pnpm build`.
+E2e testlar alohida `liveportal_test` bazasida ishlaydi (avtomatik yaratiladi), ishlab chiqish bazasiga tegmaydi. `pnpm build` ni `pnpm dev` ishlab turganda ishga tushirmang: build `dist` ni o'chiradi va dev API to'xtaydi.
+
+## API (`/api/v1`)
+
+| Endpoint | Ruxsat |
+|---|---|
+| `GET /projects` (`?archived=true`) | workspace a'zosi; `dashboard.view_all` bo'lsa hamma loyihalar, bo'lmasa faqat o'zinikilar |
+| `POST /projects` | `project.create`. Yaratuvchi teamlead bo'ladi, 5 ta standart status qo'shiladi |
+| `GET /projects/:projectId` | loyiha a'zosi yoki `dashboard.view_all`, aks holda 404 |
+| `PATCH /projects/:projectId` | `project.update`; arxivlash uchun `project.archive` ham |
+| `POST /projects/:projectId/members` | `project.member.manage`; o'zidan yuqori rol berib bo'lmaydi |
+| `PATCH`/`DELETE /projects/:projectId/members/:userId` | `project.member.manage`; o'zini o'zgartirib bo'lmaydi |
+| `GET /workspace/members` | workspace a'zosi |
+
+Loyihadagi ruxsat = workspace roli + loyiha roli. Har o'zgarish `Event` jadvaliga bitta tranzaksiyada yoziladi (outbox).
 
 ## Keyingi qadam
 
-`docs/09-fast-track.md` bo'yicha 3-kun: loyihalar va a'zolar API, loyiha darajasidagi ruxsatlar.
+`docs/09-fast-track.md` bo'yicha 4-kun: Task API (yaratish, tayinlash, status, muddat, izoh) va outbox dispatcher.

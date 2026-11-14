@@ -6,6 +6,8 @@ import { validateEnv } from './config/env.js';
 import { DatabaseModule } from './db/database.module.js';
 import { HealthController } from './health/health.controller.js';
 import { InvitesModule } from './invites/invites.module.js';
+import { ProjectsModule } from './projects/projects.module.js';
+import { WorkspaceModule } from './workspace/workspace.module.js';
 
 @Module({
   imports: [
@@ -13,6 +15,8 @@ import { InvitesModule } from './invites/invites.module.js';
     DatabaseModule,
     AuthModule,
     InvitesModule,
+    WorkspaceModule,
+    ProjectsModule,
     BotModule,
   ],
   controllers: [HealthController],
