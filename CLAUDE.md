@@ -23,7 +23,7 @@ IT Live Academy ichki portali: loyihalar, tasklar, Telegram bildirishnomalari. T
 
 ## Tekshirish
 - Testlar kodni yangidan kompilyatsiya qiladi, dev server esa yo'q. API'ni o'zgartirgandan keyin dev logida **o'zgarishdan keyingi** `Nest application successfully started` qatorini toping; yo'q bo'lsa (`Found N errors` bilan qotib qolgan), `pnpm dev` ni qayta ishga tushiring.
-- `pnpm build` ni `pnpm dev` ishlab turganda ishga tushirmang (`dist` o'chadi, dev API to'xtaydi). API uchun `tsc --noEmit` yetarli.
+- `nest-cli.json` da `deleteOutDir: false`: aks holda watch har qayta kompilyatsiyada `dist` ni o'chirib, API "dist/main topilmadi" bilan yiqilardi. API'ni tekshirish uchun `tsc --noEmit` yetarli.
 - Brauzerda tekshirish uchun haqiqiy akkauntlarga tegmang: vaqtinchalik foydalanuvchi yarating (telegramId 9000000xx) va oxirida uning ma'lumotlarini o'chiring.
 
 ## Buyruqlar
