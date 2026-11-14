@@ -114,3 +114,19 @@ export interface Dashboard {
     completedAt: string
   }[]
 }
+
+export interface RoleInfo {
+  id: string
+  name: string
+  title: string
+  scope: 'WORKSPACE' | 'PROJECT'
+  permissions: string[]
+  isSystem: boolean
+  members: number
+}
+
+export interface RolesResponse {
+  canManage: boolean
+  permissions: { key: string; label: string; group: string; allowed: boolean }[]
+  roles: RoleInfo[]
+}

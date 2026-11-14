@@ -120,7 +120,7 @@ describe('Loyihalar va a’zolar (e2e)', () => {
       .set(as('lead'))
       .send({ userId: users.mentor.id })
       .expect(201);
-    expect(res.body).toMatchObject({ userId: users.mentor.id, role: 'mentor' });
+    expect(res.body).toMatchObject({ userId: users.mentor.id, role: 'developer' });
     expect(await events('project.member_added')).toHaveLength(1);
 
     const add = (body: object) => http().post(`/api/v1/projects/${projectId}/members`).set(as('lead')).send(body);
@@ -132,7 +132,7 @@ describe('Loyihalar va a’zolar (e2e)', () => {
 
   it('mentor loyihani ko‘radi, lekin a’zo qo‘sha olmaydi va tahrirlay olmaydi', async () => {
     const list = await http().get('/api/v1/projects').set(as('mentor')).expect(200);
-    expect(list.body.find((p: { id: string }) => p.id === projectId)).toMatchObject({ myRole: 'mentor', memberCount: 2 });
+    expect(list.body.find((p: { id: string }) => p.id === projectId)).toMatchObject({ myRole: 'developer', memberCount: 2 });
     await http().get(`/api/v1/projects/${projectId}`).set(as('mentor')).expect(200);
     await http()
       .post(`/api/v1/projects/${projectId}/members`)
@@ -145,14 +145,14 @@ describe('Loyihalar va a’zolar (e2e)', () => {
   it('rol o‘zgartirish: o‘zinikini 403, yuqori ruxsatli rol 403, oddiy holatda event yoziladi', async () => {
     const patch = (userId: string, role: string) =>
       http().patch(`/api/v1/projects/${projectId}/members/${userId}`).set(as('lead')).send({ role });
-    await patch(users.lead.id, 'mentor').expect(403);
+    await patch(users.lead.id, 'developer').expect(403);
     await patch(users.mentor.id, customRoles.super).expect(403);
-    await patch(users.outsider.id, 'mentor').expect(404);
+    await patch(users.outsider.id, 'developer').expect(404);
 
     const res = await patch(users.mentor.id, customRoles.editor).expect(200);
     expect(res.body.role).toBe(customRoles.editor);
     const [event] = await events('project.member_role_changed');
-    expect(event.payload).toMatchObject({ userId: users.mentor.id, from: 'mentor', to: customRoles.editor });
+    expect(event.payload).toMatchObject({ userId: users.mentor.id, from: 'developer', to: customRoles.editor });
   });
 
   it('loyiha roli ruxsati ishlaydi: project.update bor, project.archive yo‘q', async () => {

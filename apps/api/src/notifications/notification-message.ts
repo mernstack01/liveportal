@@ -33,7 +33,8 @@ export interface MessageInput {
   role?: string;
 }
 
-const ROLE_LABELS: Record<string, string> = { teamlead: 'Teamlead', mentor: 'Mentor', guest: 'Mehmon' };
+/** Zaxira: odatda sender rolning bazadagi nomini (title) beradi. */
+const ROLE_LABELS: Record<string, string> = { teamlead: 'Teamlead', developer: 'Dasturchi', guest: 'Mehmon' };
 const PRIORITY_MARK: Record<string, string> = { HIGH: '🔺 Yuqori prioritet', URGENT: '🔥 Shoshilinch' };
 
 /** Telegram HTML rejimi uchun. */

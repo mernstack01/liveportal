@@ -10,6 +10,8 @@ export const PERMISSIONS = [
   'member.invite',
   'member.role.assign',
   'dashboard.view_all',
+  /** Yangi loyiha rollarini yaratish va tahrirlash (teamlead, admin, rahbar). */
+  'role.manage',
   'project.create',
   'project.update',
   'project.archive',
@@ -19,7 +21,9 @@ export const PERMISSIONS = [
   'task.assign',
   'task.close',
   'task.comment',
+  /** Ichki (faqat xodimlar) chat: mehmon ko'rmaydi. */
   'message.internal.read',
+  'message.internal.write',
   'message.external.read',
   'message.external.write',
 ] as const;
@@ -30,41 +34,66 @@ export type RoleScope = 'WORKSPACE' | 'PROJECT';
 
 export interface SystemRole {
   name: string;
+  /** Interfeysda ko'rinadigan nom. */
+  title: string;
   scope: RoleScope;
   permissions: readonly Permission[];
 }
+
+/** Loyiha rollariga beriladigan ruxsatlar (rol yaratish oynasidagi ro'yxat), o'zbekcha nomi bilan. */
+export const PROJECT_PERMISSIONS: readonly { key: Permission; label: string; group: string }[] = [
+  { key: 'task.create', label: 'Task yaratish', group: 'Tasklar' },
+  { key: 'task.update', label: 'Taskni tahrirlash va holatini o‘zgartirish', group: 'Tasklar' },
+  { key: 'task.assign', label: 'Task berish (bajaruvchi tayinlash)', group: 'Tasklar' },
+  { key: 'task.close', label: 'Taskni yopish (Done)', group: 'Tasklar' },
+  { key: 'task.comment', label: 'Izoh yozish', group: 'Tasklar' },
+  { key: 'message.internal.read', label: 'Ichki chatni o‘qish', group: 'Chat' },
+  { key: 'message.internal.write', label: 'Ichki chatga yozish', group: 'Chat' },
+  { key: 'message.external.read', label: 'Mijoz chatini o‘qish', group: 'Chat' },
+  { key: 'message.external.write', label: 'Mijoz chatiga yozish', group: 'Chat' },
+  { key: 'project.update', label: 'Loyihani tahrirlash', group: 'Loyiha' },
+  { key: 'project.archive', label: 'Loyihani arxivlash', group: 'Loyiha' },
+  { key: 'project.member.manage', label: 'A’zolarni qo‘shish va chiqarish', group: 'Loyiha' },
+  { key: 'role.manage', label: 'Rollarni yaratish', group: 'Loyiha' },
+];
 
 const ALL = PERMISSIONS;
 const ADMIN = PERMISSIONS.filter((p) => p !== 'workspace.owner');
 
 export const SYSTEM_ROLES: readonly SystemRole[] = [
-  { name: 'owner', scope: 'WORKSPACE', permissions: ALL },
-  { name: 'admin', scope: 'WORKSPACE', permissions: ADMIN },
-  { name: 'member', scope: 'WORKSPACE', permissions: ['project.create'] },
+  { name: 'owner', title: 'Rahbar', scope: 'WORKSPACE', permissions: ALL },
+  { name: 'admin', title: 'Admin', scope: 'WORKSPACE', permissions: ADMIN },
+  { name: 'member', title: 'A’zo', scope: 'WORKSPACE', permissions: ['project.create'] },
   {
     name: 'teamlead',
+    title: 'Teamlead',
     scope: 'PROJECT',
     permissions: [
       'project.update',
       'project.archive',
       'project.member.manage',
+      'role.manage',
       'task.create',
       'task.update',
       'task.assign',
       'task.close',
       'task.comment',
       'message.internal.read',
+      'message.internal.write',
       'message.external.read',
       'message.external.write',
     ],
   },
   {
-    name: 'mentor',
+    // 2026-11-14 gacha "mentor" edi; migration bazadagi qatorni qayta nomlaydi.
+    name: 'developer',
+    title: 'Dasturchi',
     scope: 'PROJECT',
-    permissions: ['task.create', 'task.update', 'task.assign', 'task.comment', 'message.internal.read'],
+    permissions: ['task.create', 'task.update', 'task.assign', 'task.comment', 'message.internal.read', 'message.internal.write'],
   },
   {
     name: 'guest',
+    title: 'Mehmon',
     scope: 'PROJECT',
     permissions: ['message.external.read', 'message.external.write'],
   },

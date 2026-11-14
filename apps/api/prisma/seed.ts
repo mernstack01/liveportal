@@ -23,10 +23,11 @@ async function main() {
   for (const role of SYSTEM_ROLES) {
     await prisma.role.upsert({
       where: { workspaceId_name: { workspaceId: workspace.id, name: role.name } },
-      update: { scope: role.scope, permissions: [...role.permissions], isSystem: true },
+      update: { title: role.title, scope: role.scope, permissions: [...role.permissions], isSystem: true },
       create: {
         workspaceId: workspace.id,
         name: role.name,
+        title: role.title,
         scope: role.scope,
         permissions: [...role.permissions],
         isSystem: true,

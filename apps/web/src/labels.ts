@@ -5,13 +5,11 @@ export const ROLE_LABELS: Record<string, string> = {
   admin: 'Admin',
   member: 'A’zo',
   teamlead: 'Teamlead',
-  mentor: 'Mentor',
+  developer: 'Dasturchi',
   guest: 'Mehmon',
 }
 export const roleLabel = (role: string | null | undefined) => (role ? (ROLE_LABELS[role] ?? role) : '—')
 
-/** Loyihada beriladigan rollar (yuqoridan pastga). */
-export const PROJECT_ROLES = ['teamlead', 'mentor', 'guest'] as const
 
 export const PROJECT_STATUS_LABELS: Record<ProjectStatus, string> = {
   PLANNING: 'Rejada',

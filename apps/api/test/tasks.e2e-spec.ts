@@ -48,7 +48,7 @@ describe('Tasklar, izohlar va outbox (e2e)', () => {
     const project = await http().post('/api/v1/projects').set(as('lead')).send({ key, name: 'Task e2e' }).expect(201);
     projectId = project.body.id;
     statuses = Object.fromEntries(project.body.statuses.map((s: { name: string; id: string }) => [s.name, s.id]));
-    for (const [who, role] of [['mentor', 'mentor'], ['guest', 'guest']] as const) {
+    for (const [who, role] of [['mentor', 'developer'], ['guest', 'guest']] as const) {
       await http().post(`/api/v1/projects/${projectId}/members`).set(as('lead')).send({ userId: users[who].id, role }).expect(201);
     }
 

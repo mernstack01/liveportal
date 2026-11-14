@@ -2,12 +2,14 @@ import { useState } from 'react'
 import { Link } from 'react-router'
 import { CreateProjectDialog } from '../components/CreateProjectDialog'
 import { Badge, Button, ErrorText, Spinner } from '../components/ui'
-import { formatDay, isOverdue, PROJECT_STATUS_LABELS, PROJECT_STATUS_STYLES, roleLabel } from '../labels'
+import { formatDay, isOverdue, PROJECT_STATUS_LABELS, PROJECT_STATUS_STYLES } from '../labels'
+import { useRoleTitle } from '../roles'
 import { useMe } from '../me'
 import { useProjects } from '../queries'
 import type { ProjectSummary } from '../types'
 
 function ProjectCard({ project }: { project: ProjectSummary }) {
+  const roleLabel = useRoleTitle()
   const late = project.status !== 'COMPLETED' && project.status !== 'ARCHIVED' && isOverdue(project.dueDate)
   return (
     <Link

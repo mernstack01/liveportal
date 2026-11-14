@@ -42,7 +42,7 @@ export const listProjectsQuery = z.object({
 
 export const addMemberSchema = z.object({
   userId: z.string().min(1).max(64),
-  role: z.string().min(1).max(64).default('mentor'),
+  role: z.string().min(1).max(64).default('developer'),
 });
 export type AddMemberDto = z.infer<typeof addMemberSchema>;
 

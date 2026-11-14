@@ -1,8 +1,9 @@
 import { useQueryClient } from '@tanstack/react-query'
 import { NavLink, Outlet, useLocation } from 'react-router'
 import { useAuth } from '../auth'
-import { roleLabel } from '../labels'
 import { useMe } from '../me'
+import { useRoles } from '../queries'
+import { useRoleTitle } from '../roles'
 import { Avatar } from './ui'
 
 const navClass = ({ isActive }: { isActive: boolean }) =>
@@ -13,6 +14,8 @@ export function AppLayout() {
   const { logout } = useAuth()
   const queryClient = useQueryClient()
   const { pathname } = useLocation()
+  const roleLabel = useRoleTitle()
+  const canManageRoles = useRoles().data?.canManage ?? false
 
   const signOut = async () => {
     await logout()
@@ -43,6 +46,11 @@ export function AppLayout() {
             <NavLink to="/team" className={navClass}>
               Jamoa
             </NavLink>
+            {canManageRoles && (
+              <NavLink to="/roles" className={navClass}>
+                Rollar
+              </NavLink>
+            )}
           </nav>
           <div className="ml-auto flex items-center gap-2 sm:gap-3">
             <div className="hidden text-right sm:block">

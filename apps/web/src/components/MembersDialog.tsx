@@ -1,8 +1,8 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useState, type FormEvent } from 'react'
 import { api } from '../api'
-import { PROJECT_ROLES, roleLabel } from '../labels'
-import { keys, useWorkspaceMembers } from '../queries'
+import { keys, useRoles, useWorkspaceMembers } from '../queries'
+import { useRoleTitle } from '../roles'
 import type { ProjectDetail } from '../types'
 import { Avatar, Button, ErrorText, inputClass, Modal } from './ui'
 
@@ -11,7 +11,10 @@ export function MembersDialog({ project, userId, onClose }: { project: ProjectDe
   const canManage = project.myPermissions.includes('project.member.manage') && project.status !== 'ARCHIVED'
   const workspaceMembers = useWorkspaceMembers()
   const [newUserId, setNewUserId] = useState('')
-  const [newRole, setNewRole] = useState('mentor')
+  const [newRole, setNewRole] = useState('developer')
+  const roleTitle = useRoleTitle()
+  // Loyiha rollari bazadan: tizim rollari va teamlead yaratganlari
+  const projectRoles = useRoles().data?.roles.filter((r) => r.scope === 'PROJECT') ?? []
 
   const refresh = () => {
     void queryClient.invalidateQueries({ queryKey: keys.project(project.id) })
@@ -65,12 +68,12 @@ export function MembersDialog({ project, userId, onClose }: { project: ProjectDe
                     onChange={(e) => changeRole.mutate({ memberId: m.userId, role: e.target.value })}
                     className="rounded-md border border-slate-300 bg-white px-2 py-1 text-sm"
                   >
-                    {PROJECT_ROLES.map((r) => (
-                      <option key={r} value={r}>
-                        {roleLabel(r)}
+                    {projectRoles.map((r) => (
+                      <option key={r.name} value={r.name}>
+                        {r.title}
                       </option>
                     ))}
-                    {!PROJECT_ROLES.includes(m.role as (typeof PROJECT_ROLES)[number]) && <option value={m.role}>{roleLabel(m.role)}</option>}
+                    {!projectRoles.some((r) => r.name === m.role) && <option value={m.role}>{roleTitle(m.role)}</option>}
                   </select>
                   <Button
                     variant="danger"
@@ -82,7 +85,7 @@ export function MembersDialog({ project, userId, onClose }: { project: ProjectDe
                   </Button>
                 </>
               ) : (
-                <span className="text-sm text-slate-500">{roleLabel(m.role)}</span>
+                <span className="text-sm text-slate-500">{roleTitle(m.role)}</span>
               )}
             </li>
           )
@@ -107,9 +110,9 @@ export function MembersDialog({ project, userId, onClose }: { project: ProjectDe
                 ))}
               </select>
               <select value={newRole} onChange={(e) => setNewRole(e.target.value)} className={`${inputClass} sm:w-36`}>
-                {PROJECT_ROLES.map((r) => (
-                  <option key={r} value={r}>
-                    {roleLabel(r)}
+                {projectRoles.map((r) => (
+                  <option key={r.name} value={r.name}>
+                    {r.title}
                   </option>
                 ))}
               </select>

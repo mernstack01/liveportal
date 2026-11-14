@@ -56,7 +56,8 @@ model Workspace {
 model Role {
   id          String    @id @default(cuid())
   workspaceId String
-  name        String // owner, admin, teamlead, member, guest, ... (yangi rol = yangi qator)
+  name        String // kalit: owner, admin, teamlead, developer, guest yoki yaratilgan rolning slug'i
+  title       String? // interfeysdagi nomi: "Dasturchi", "QA muhandis" ...
   scope       RoleScope
   permissions String[] // ['project.create', 'task.assign', ...]
   isSystem    Boolean   @default(false)

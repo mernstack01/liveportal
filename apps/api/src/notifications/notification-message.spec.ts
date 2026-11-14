@@ -59,9 +59,9 @@ describe('renderMessage', () => {
       actorName: 'Ali',
       webOrigin: 'https://portal.itlive.uz',
       project: { id: 'p1', name: 'LivePortal' },
-      role: 'mentor',
+      role: 'developer',
     });
-    expect(msg.text).toBe('👋 Ali sizni <b>LivePortal</b> loyihasiga qo‘shdi.\nRolingiz: Mentor');
+    expect(msg.text).toBe('👋 Ali sizni <b>LivePortal</b> loyihasiga qo‘shdi.\nRolingiz: Dasturchi');
     expect(msg.buttons).toEqual([[{ text: 'Ochish', webAppUrl: 'https://portal.itlive.uz/projects/p1' }]]);
   });
 

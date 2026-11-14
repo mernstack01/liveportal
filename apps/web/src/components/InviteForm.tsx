@@ -33,7 +33,7 @@ export function InviteForm() {
       </div>
       <form onSubmit={submit} className="flex flex-col gap-2 sm:flex-row">
         <select value={role} onChange={(e) => setRole(e.target.value)} className={`${inputClass} sm:w-56`}>
-          <option value="member">A’zo (mentor, teamlead)</option>
+          <option value="member">A’zo (dasturchi, teamlead)</option>
           <option value="admin">Admin</option>
         </select>
         <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Kim uchun? (ixtiyoriy)" className={inputClass} />

@@ -7,6 +7,7 @@ import { MyTasksPage } from './pages/MyTasksPage'
 import { NotFoundPage } from './pages/NotFoundPage'
 import { ProjectPage } from './pages/ProjectPage'
 import { ProjectsPage } from './pages/ProjectsPage'
+import { RolesPage } from './pages/RolesPage'
 import { TeamPage } from './pages/TeamPage'
 import { TaskDrawer } from './task/TaskDrawer'
 
@@ -24,6 +25,7 @@ const router = createBrowserRouter([
       { path: '/my', element: <MyTasksPage /> },
       { path: '/dashboard', element: <DashboardPage /> },
       { path: '/team', element: <TeamPage /> },
+      { path: '/roles', element: <RolesPage /> },
       { path: '*', element: <NotFoundPage /> },
     ],
   },

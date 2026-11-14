@@ -1,12 +1,13 @@
 import { Avatar, ErrorText, Spinner } from '../components/ui'
 import { InviteForm } from '../components/InviteForm'
-import { roleLabel } from '../labels'
+import { useRoleTitle } from '../roles'
 import { useMe } from '../me'
 import { useWorkspaceMembers } from '../queries'
 
 export function TeamPage() {
   const { workspace, can } = useMe()
   const members = useWorkspaceMembers()
+  const roleLabel = useRoleTitle()
 
   return (
     <main className="mx-auto max-w-3xl space-y-6 px-4 py-6">
