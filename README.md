@@ -70,6 +70,8 @@ Keyingi odamlarni portaldagi "Odam taklif qilish" bo'limidan taklif qilasiz. Har
 Tekshiruvlar: `pnpm test`, `pnpm --filter @liveportal/api test:e2e`, `pnpm lint`, `pnpm build`.
 E2e testlar alohida `liveportal_test` bazasida ishlaydi (avtomatik yaratiladi), ishlab chiqish bazasiga tegmaydi. `pnpm build` ni `pnpm dev` ishlab turganda ishga tushirmang: build `dist` ni o'chiradi va dev API to'xtaydi.
 
+Jonli namoyish (demo jamoa, kirish ID'lari, o'chirish buyrug'i): [docs/demo.md](docs/demo.md). Demo video: `docs/media/liveportal-demo.mp4` (git'da emas).
+
 ## API (`/api/v1`)
 
 | Endpoint | Ruxsat |
