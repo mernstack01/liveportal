@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Post, Query } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from '@nestjs/common';
 import type { AuthUser, ProjectContext, WorkspaceContext } from '../auth/auth.types.js';
 import { CurrentProject, CurrentUser, CurrentWorkspace, RequireMembership, RequireProjectAccess } from '../auth/decorators.js';
 import { parse } from '../common/zod.js';
@@ -33,6 +33,20 @@ export class TasksController {
   @RequireProjectAccess()
   update(@Param('taskRef') ref: string, @Body() body: unknown, @CurrentUser() user: AuthUser, @CurrentProject() project: ProjectContext) {
     return this.tasks.update(project, user.id, ref, parse(updateTaskSchema, body));
+  }
+
+  /** "Men olaman": o'zini mas'ullarga qo'shish (task.update yetarli). */
+  @Post(':taskRef/claim')
+  @RequireProjectAccess('task.update')
+  claim(@Param('taskRef') ref: string, @CurrentUser() user: AuthUser, @CurrentProject() project: ProjectContext) {
+    return this.tasks.claim(project, user.id, ref, true);
+  }
+
+  /** O'zini mas'ullardan chiqarish. */
+  @Delete(':taskRef/claim')
+  @RequireProjectAccess('task.update')
+  leave(@Param('taskRef') ref: string, @CurrentUser() user: AuthUser, @CurrentProject() project: ProjectContext) {
+    return this.tasks.claim(project, user.id, ref, false);
   }
 
   @Post(':taskRef/comments')

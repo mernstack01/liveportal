@@ -34,7 +34,7 @@ export class DashboardController {
           dueDate: true,
           dueTime: true,
           completedAt: true,
-          assigneeId: true,
+          assignees: { select: { userId: true } },
           status: { select: { category: true } },
         },
       }),
@@ -50,7 +50,7 @@ export class DashboardController {
       weekStart: localMidnight(weekStartDay),
       now,
       projects,
-      tasks: tasks.map(({ status, ...t }) => ({ ...t, category: status.category as Category })),
+      tasks: tasks.map(({ status, assignees, ...t }) => ({ ...t, assigneeIds: assignees.map((a) => a.userId), category: status.category as Category })),
       members: members.map((m) => ({ userId: m.userId, name: m.user.name, avatarUrl: m.user.avatarUrl, role: m.role.name })),
     });
   }

@@ -192,7 +192,17 @@ export function DashboardPage() {
                         {t.project.name} · muddat {formatDay(t.dueDate)}{t.dueTime ? ` ${t.dueTime}` : ''}
                       </span>
                     </span>
-                    {t.assignee ? <Avatar person={t.assignee} size="sm" /> : <span className="text-xs text-slate-400">egasiz</span>}
+                    {t.assignees.length > 0 ? (
+                      <span className="flex -space-x-1.5" title={t.assignees.map((a) => a.name).join(', ')}>
+                        {t.assignees.slice(0, 3).map((a) => (
+                          <span key={a.userId} className="rounded-full ring-2 ring-white">
+                            <Avatar person={a} size="sm" />
+                          </span>
+                        ))}
+                      </span>
+                    ) : (
+                      <span className="text-xs text-slate-400">egasiz</span>
+                    )}
                   </Link>
                 </li>
               ))}
@@ -254,7 +264,9 @@ export function DashboardPage() {
                     <span className="text-slate-400"> · {t.project.name}</span>
                   </span>
                   <span className="hidden text-xs text-slate-500 sm:inline">{formatDateTime(t.completedAt)}</span>
-                  {t.assignee && <Avatar person={t.assignee} size="sm" />}
+                  {t.assignees.slice(0, 3).map((a) => (
+                    <Avatar key={a.userId} person={a} size="sm" />
+                  ))}
                 </Link>
               </li>
             ))}

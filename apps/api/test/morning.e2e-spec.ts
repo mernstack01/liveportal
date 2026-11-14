@@ -74,7 +74,7 @@ describe('Ertalabki ish: kechikkanlar va xulosa (e2e)', () => {
       await http().post(`/api/v1/projects/${projectId}/members`).set(as('lead')).send({ userId: users[who].id }).expect(201);
     }
     const create = async (name: string, who: Who, dueOffset: number | null, statusId?: string) => {
-      const body: Record<string, unknown> = { title: name, assigneeId: users[who].id };
+      const body: Record<string, unknown> = { title: name, assigneeIds: [users[who].id] };
       if (dueOffset !== null) body.dueDate = addDays(today, dueOffset);
       if (statusId) body.statusId = statusId;
       const res = await http().post(`/api/v1/projects/${projectId}/tasks`).set(as('lead')).send(body).expect(201);
@@ -144,7 +144,7 @@ describe('Ertalabki ish: kechikkanlar va xulosa (e2e)', () => {
     expect(overdueEvents.map((e) => e.entityId).sort()).toEqual([taskIds.Kechikkan, taskIds.Bugungi].sort());
 
     // Xabarlar yuborilishidan oldin mentor hamma tasklarini yopdi: eskirgan xabarlar ketmaydi.
-    await prisma.task.updateMany({ where: { assigneeId: users.mentor.id }, data: { statusId: statuses.Done } });
+    await prisma.task.updateMany({ where: { assignees: { some: { userId: users.mentor.id } } }, data: { statusId: statuses.Done } });
     await flush();
     expect(take()).toEqual([]);
     const skipped = await prisma.notification.count({ where: { kind: 'overdue', status: 'skipped', event: { entityId: taskIds.Bugungi } } });
@@ -167,10 +167,10 @@ describe('Ertalabki ish: kechikkanlar va xulosa (e2e)', () => {
     const res = await http()
       .post(`/api/v1/projects/${projectId}/tasks`)
       .set(as('lead'))
-      .send({ title: 'Soatli', assigneeId: users.quiet.id, dueDate: today, dueTime: '00:00' })
+      .send({ title: 'Soatli', assigneeIds: [users.quiet.id], dueDate: today, dueTime: '00:00' })
       .expect(201);
     expect(res.body).toMatchObject({ dueTime: '00:00' });
-    await http().post(`/api/v1/projects/${projectId}/tasks`).set(as('lead')).send({ title: 'Ertaga soatli', assigneeId: users.quiet.id, dueDate: addDays(today, 1), dueTime: '00:00' }).expect(201);
+    await http().post(`/api/v1/projects/${projectId}/tasks`).set(as('lead')).send({ title: 'Ertaga soatli', assigneeIds: [users.quiet.id], dueDate: addDays(today, 1), dueTime: '00:00' }).expect(201);
     await flush();
     take();
 

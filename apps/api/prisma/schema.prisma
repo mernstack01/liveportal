@@ -27,7 +27,7 @@ model User {
 
   workspaces     WorkspaceMember[]
   projects       ProjectMember[]
-  assignedTasks  Task[]            @relation("assignee")
+  taskAssignments TaskAssignee[]
   reportedTasks  Task[]            @relation("reporter")
   comments       Comment[]
   messages       Message[]
@@ -196,7 +196,6 @@ model Task {
   description  String?
   statusId     String
   priority     Priority  @default(MEDIUM)
-  assigneeId   String?
   reporterId   String
   parentId     String?
   dueDate      DateTime? // kun (UTC yarim tun)
@@ -209,16 +208,15 @@ model Task {
 
   project   Project          @relation(fields: [projectId], references: [id])
   status    WorkflowStatus   @relation(fields: [statusId], references: [id])
-  assignee  User?            @relation("assignee", fields: [assigneeId], references: [id])
   reporter  User             @relation("reporter", fields: [reporterId], references: [id])
   parent    Task?            @relation("subtasks", fields: [parentId], references: [id])
   subtasks  Task[]           @relation("subtasks")
   comments  Comment[]
+  assignees TaskAssignee[] // bir nechta mas'ul (Bitrix24: mas'ul + ijrochilar)
   blocks    TaskDependency[] @relation("from")
   blockedBy TaskDependency[] @relation("to")
 
   @@unique([projectId, number])
-  @@index([assigneeId, statusId])
   @@index([dueDate])
 }
 
@@ -383,4 +381,17 @@ model JobRun {
   stats     Json     @default("{}")
 
   @@id([job, period])
+}
+
+/// Taskning mas'ullari: bir nechta odam birga javobgar bo'lishi mumkin.
+model TaskAssignee {
+  taskId    String
+  userId    String
+  createdAt DateTime @default(now())
+
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id])
+
+  @@id([taskId, userId])
+  @@index([userId])
 }

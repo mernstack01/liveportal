@@ -24,7 +24,7 @@ export interface DashTask {
   dueDate: Date | null;
   dueTime: string | null;
   completedAt: Date | null;
-  assigneeId: string | null;
+  assigneeIds: string[];
 }
 
 export interface DashMember {
@@ -55,10 +55,11 @@ export function aggregateDashboard(input: {
   const isLate = (t: DashTask) => isOpen(t) && isPastDue(t.dueDate, t.dueTime, today, now);
   const doneThisWeek = (t: DashTask) => t.category === 'DONE' && t.completedAt !== null && t.completedAt >= weekStart;
   const taskKey = (t: DashTask) => `${projectById.get(t.projectId)?.key ?? '?'}-${t.number}`;
-  const person = (id: string | null) => {
-    const m = id ? memberById.get(id) : undefined;
-    return m ? { userId: m.userId, name: m.name, avatarUrl: m.avatarUrl } : null;
-  };
+  const peopleOf = (ids: string[]) =>
+    ids.flatMap((id) => {
+      const m = memberById.get(id);
+      return m ? [{ userId: m.userId, name: m.name, avatarUrl: m.avatarUrl }] : [];
+    });
 
   const projectRows = projects.map((p) => {
     const own = tasks.filter((t) => t.projectId === p.id);
@@ -99,7 +100,7 @@ export function aggregateDashboard(input: {
       number: t.number,
       title: t.title,
       project: { id: t.projectId, name: projectById.get(t.projectId)?.name ?? '' },
-      assignee: person(t.assigneeId),
+      assignees: peopleOf(t.assigneeIds),
       dueDate: t.dueDate,
       dueTime: t.dueTime,
       daysLate: daysBetween(day(t.dueDate!), today),
@@ -107,7 +108,7 @@ export function aggregateDashboard(input: {
 
   const people = members
     .map((m) => {
-      const mine = tasks.filter((t) => t.assigneeId === m.userId);
+      const mine = tasks.filter((t) => t.assigneeIds.includes(m.userId));
       return {
         userId: m.userId,
         name: m.name,
@@ -136,7 +137,7 @@ export function aggregateDashboard(input: {
       overdue: tasks.filter(isLate).length,
       doneThisWeek: done.length,
       /** Hech kimga berilmagan ochiq tasklar. */
-      unassigned: tasks.filter((t) => isOpen(t) && !t.assigneeId).length,
+      unassigned: tasks.filter((t) => isOpen(t) && t.assigneeIds.length === 0).length,
     },
     projects: projectRows,
     overdue,
@@ -147,7 +148,7 @@ export function aggregateDashboard(input: {
       number: t.number,
       title: t.title,
       project: { id: t.projectId, name: projectById.get(t.projectId)?.name ?? '' },
-      assignee: person(t.assigneeId),
+      assignees: peopleOf(t.assigneeIds),
       completedAt: t.completedAt,
     })),
   };

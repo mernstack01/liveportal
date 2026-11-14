@@ -12,7 +12,7 @@ const task: MessageTask = {
   priority: 'URGENT',
   statusName: 'To do',
   statusCategory: 'TODO',
-  assigneeId: 'u-mentor',
+  assigneeIds: ['u-mentor'],
   assigneeName: 'Vali',
 };
 

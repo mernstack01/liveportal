@@ -7,7 +7,7 @@ import type { CreateTaskDto, UpdateTaskDto } from './dto/task.dto.js';
 import { extractMentions } from './mentions.js';
 import { type CommentRow, type TaskRow, TasksRepository } from './tasks.repository.js';
 
-type Person = TaskRow['assignee'];
+type Person = TaskRow['reporter'] | null;
 
 /** Yopilgan holatlar: bu yerga o'tkazish yoki bu yerdan qaytarish `task.close` talab qiladi (docs/07, 4-savol). */
 const CLOSED = new Set(['DONE', 'CANCELED']);
@@ -29,7 +29,7 @@ export function toTask(t: TaskRow) {
     dueTime: t.dueTime,
     completedAt: t.completedAt,
     status: t.status,
-    assignee: toPerson(t.assignee),
+    assignees: t.assignees.map((a) => toPerson(a.user)!),
     reporter: toPerson(t.reporter),
     createdAt: t.createdAt,
     updatedAt: t.updatedAt,
@@ -52,7 +52,7 @@ function taskEvent(project: ProjectContext, t: TaskRow, actorId: string, type: D
       projectId: project.id,
       key: `${t.project.key}-${t.number}`,
       title: t.title,
-      assigneeId: t.assigneeId,
+      assigneeIds: t.assignees.map((a) => a.userId),
       reporterId: t.reporterId,
       ...extra,
     },
@@ -81,14 +81,15 @@ export class TasksService {
 
   async create(project: ProjectContext, actorId: string, dto: CreateTaskDto) {
     await this.assertWritable(project);
-    const { statusId, assigneeId, ...fields } = dto;
-    if (assigneeId) this.require(project, ['task.assign']);
+    const { statusId, assigneeIds: rawAssignees, ...fields } = dto;
+    const assigneeIds = [...new Set(rawAssignees ?? [])];
+    if (assigneeIds.length > 0) this.require(project, ['task.assign']);
 
     const status = await this.repo.findStatus(project.id, statusId);
     if (!status) throw new BadRequestException('Bunday status bu loyihada yo‘q');
     const closing = CLOSED.has(status.category);
     if (closing) this.require(project, ['task.close']);
-    if (assigneeId) await this.assertMember(project, assigneeId);
+    await this.assertMembers(project, assigneeIds);
 
     const task = await this.repo.prisma.$transaction(async (tx) => {
       const number = await this.repo.nextNumber(tx, project.id);
@@ -97,13 +98,13 @@ export class TasksService {
         projectId: project.id,
         number,
         statusId: status.id,
-        assigneeId: assigneeId ?? null,
         reporterId: actorId,
         completedAt: closing ? new Date() : null,
+        assignees: { create: assigneeIds.map((userId) => ({ userId })) },
       });
       await recordEvent(tx, taskEvent(project, created, actorId, 'task.created', { status: status.name }));
-      if (created.assigneeId) {
-        await recordEvent(tx, taskEvent(project, created, actorId, 'task.assigned', { previousAssigneeId: null }));
+      if (assigneeIds.length > 0) {
+        await recordEvent(tx, taskEvent(project, created, actorId, 'task.assigned', { added: assigneeIds, removed: [] }));
       }
       return created;
     });
@@ -113,11 +114,15 @@ export class TasksService {
   async update(project: ProjectContext, actorId: string, ref: string, dto: UpdateTaskDto) {
     await this.assertWritable(project);
     const task = await this.requireTask(project, ref);
-    const { assigneeId, statusId, ...fields } = dto;
+    const { assigneeIds: rawAssignees, statusId, ...fields } = dto;
+    const current = task.assignees.map((a) => a.userId);
+    const next = rawAssignees ? [...new Set(rawAssignees)] : current;
+    const added = next.filter((id) => !current.includes(id));
+    const removed = current.filter((id) => !next.includes(id));
+    const assigneeChanged = added.length > 0 || removed.length > 0;
 
     const needed: Permission[] = [];
     if (Object.keys(fields).length > 0) needed.push('task.update');
-    const assigneeChanged = assigneeId !== undefined && assigneeId !== task.assigneeId;
     if (assigneeChanged) needed.push('task.assign');
 
     const newStatus = statusId !== undefined && statusId !== task.statusId ? await this.repo.findStatus(project.id, statusId) : undefined;
@@ -127,7 +132,7 @@ export class TasksService {
     if (newStatus) needed.push('task.update');
     if (newStatus && (wasClosed || nowClosed)) needed.push('task.close');
     this.require(project, needed);
-    if (assigneeChanged && assigneeId) await this.assertMember(project, assigneeId);
+    await this.assertMembers(project, added);
 
     // Sana olib tashlansa, soat ham ketadi; soat faqat sana bilan.
     if (fields.dueDate === null && task.dueTime) fields.dueTime = null;
@@ -135,19 +140,19 @@ export class TasksService {
     if (fields.dueTime && !nextDate) throw new BadRequestException('Soat faqat sana bilan birga beriladi');
 
     const data: Prisma.TaskUncheckedUpdateInput = { ...fields };
-    if (assigneeChanged) data.assigneeId = assigneeId;
     if (newStatus) {
       data.statusId = newStatus.id;
       if (wasClosed !== nowClosed) data.completedAt = nowClosed ? new Date() : null;
     }
 
     const updated = await this.repo.prisma.$transaction(async (tx) => {
+      if (assigneeChanged) await this.repo.setAssignees(tx, task.id, next);
       const saved = await this.repo.update(tx, task.id, data);
       if (Object.keys(fields).length > 0) {
         await recordEvent(tx, taskEvent(project, saved, actorId, 'task.updated', { fields: Object.keys(fields) }));
       }
       if (assigneeChanged) {
-        await recordEvent(tx, taskEvent(project, saved, actorId, 'task.assigned', { previousAssigneeId: task.assigneeId }));
+        await recordEvent(tx, taskEvent(project, saved, actorId, 'task.assigned', { added, removed }));
       }
       if (newStatus) {
         const from = { id: task.status.id, name: task.status.name, category: task.status.category };
@@ -157,6 +162,30 @@ export class TasksService {
       return saved;
     });
     return this.get(project, updated.id);
+  }
+
+  /**
+   * "Men olaman": dasturchi taskni o'ziga oladi (hech kim olmagan bo'lsa) yoki boshqalarga qo'shiladi.
+   * O'zini qo'shish task.update bilan; boshqalarni tayinlash — task.assign (update orqali).
+   */
+  async claim(project: ProjectContext, actorId: string, ref: string, join: boolean) {
+    await this.assertWritable(project);
+    this.require(project, ['task.update']);
+    if (join && !project.role) throw new BadRequestException('Taskni olish uchun loyiha a’zosi bo‘lishingiz kerak');
+    const task = await this.requireTask(project, ref);
+    const current = task.assignees.map((a) => a.userId);
+    if (join === current.includes(actorId)) return this.get(project, task.id);
+
+    await this.repo.prisma.$transaction(async (tx) => {
+      if (join) await tx.taskAssignee.create({ data: { taskId: task.id, userId: actorId } });
+      else await tx.taskAssignee.delete({ where: { taskId_userId: { taskId: task.id, userId: actorId } } });
+      const saved = await this.repo.reload(tx, task.id);
+      await recordEvent(
+        tx,
+        taskEvent(project, saved, actorId, 'task.assigned', join ? { added: [actorId], removed: [], claimed: true } : { added: [], removed: [actorId], left: true }),
+      );
+    });
+    return this.get(project, task.id);
   }
 
   async comment(project: ProjectContext, actorId: string, ref: string, body: string) {
@@ -190,9 +219,9 @@ export class TasksService {
     if (missing.length > 0) throw new ForbiddenException(`Bu amal uchun ruxsat yo‘q: ${missing.join(', ')}`);
   }
 
-  private async assertMember(project: ProjectContext, userId: string) {
-    if (!(await this.repo.isProjectMember(project.id, userId))) {
-      throw new BadRequestException('Task faqat loyiha a’zosiga beriladi. Avval uni loyihaga qo‘shing');
+  private async assertMembers(project: ProjectContext, userIds: string[]) {
+    if (!(await this.repo.allProjectMembers(project.id, userIds))) {
+      throw new BadRequestException('Task faqat loyiha a’zolariga beriladi. Avval ularni loyihaga qo‘shing');
     }
   }
 

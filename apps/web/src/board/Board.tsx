@@ -40,10 +40,25 @@ function TaskCard({ task, overlay = false }: { task: Task; overlay?: boolean }) 
         {task.priority !== 'MEDIUM' && <Badge className={PRIORITY_STYLES[task.priority]}>{PRIORITY_LABELS[task.priority]}</Badge>}
       </div>
       <p className={`text-sm leading-snug text-slate-900 ${closed ? 'line-through decoration-slate-400' : ''}`}>{task.title}</p>
-      {(task.dueDate || task.assignee) && (
+      {(task.dueDate || task.assignees.length > 0 || !closed) && (
         <div className="flex items-center justify-between gap-2">
           <span className={`text-xs ${late ? 'font-medium text-red-600' : 'text-slate-500'}`}>{task.dueDate ? formatDue(task.dueDate, task.dueTime) : ''}</span>
-          {task.assignee && <Avatar person={task.assignee} size="sm" />}
+          {task.assignees.length > 0 ? (
+            <span className="flex -space-x-1.5" title={task.assignees.map((a) => a.name).join(', ')}>
+              {task.assignees.slice(0, 3).map((a) => (
+                <span key={a.userId} className="rounded-full ring-2 ring-white">
+                  <Avatar person={a} size="sm" />
+                </span>
+              ))}
+              {task.assignees.length > 3 && (
+                <span className="flex size-6 items-center justify-center rounded-full bg-slate-100 text-[10px] font-medium text-slate-600 ring-2 ring-white">
+                  +{task.assignees.length - 3}
+                </span>
+              )}
+            </span>
+          ) : (
+            !closed && <span className="rounded bg-amber-50 px-1.5 py-0.5 text-[11px] font-medium text-amber-700">egasiz</span>
+          )}
         </div>
       )}
     </div>
@@ -140,7 +155,7 @@ export function Board({ project, userId }: { project: ProjectDetail; userId: str
   }, [notice])
 
   const columns = useMemo(() => {
-    const visible = (tasks.data ?? []).filter((t) => !onlyMine || t.assignee?.userId === userId)
+    const visible = (tasks.data ?? []).filter((t) => !onlyMine || t.assignees.some((a) => a.userId === userId))
     return project.statuses.map((s) => ({ status: s, tasks: visible.filter((t) => t.status.id === s.id).sort(byPriority) }))
   }, [tasks.data, project.statuses, onlyMine, userId])
 

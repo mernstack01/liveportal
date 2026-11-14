@@ -22,7 +22,8 @@ export function CreateTaskDialog({ project, statusId, onClose }: { project: Proj
 
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
-  const [assigneeId, setAssigneeId] = useState<string | null>(null)
+  const [assigneeIds, setAssigneeIds] = useState<string[]>([])
+  const toggle = (id: string) => setAssigneeIds((ids) => (ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id]))
   const [dueDate, setDueDate] = useState('')
   const [dueTime, setDueTime] = useState('')
   const [priority, setPriority] = useState<Priority>('MEDIUM')
@@ -35,7 +36,7 @@ export function CreateTaskDialog({ project, statusId, onClose }: { project: Proj
         body: JSON.stringify({
           title,
           description: description.trim() || undefined,
-          assigneeId: assigneeId ?? undefined,
+          assigneeIds: assigneeIds.length > 0 ? assigneeIds : undefined,
           dueDate: dueDate || undefined,
           dueTime: dueDate && dueTime ? dueTime : undefined,
           priority,
@@ -77,26 +78,28 @@ export function CreateTaskDialog({ project, statusId, onClose }: { project: Proj
 
         {can('task.assign') && (
           <fieldset className="space-y-2">
-            <legend className="text-sm font-medium">Mas’ul</legend>
+            <legend className="text-sm font-medium">
+              Mas’ullar <span className="font-normal text-slate-500">— bir nechtasini tanlash mumkin; hech kim bo‘lmasa, dasturchilar o‘zlari oladi</span>
+            </legend>
             <div className="flex flex-wrap gap-2">
               <button
                 type="button"
-                onClick={() => setAssigneeId(null)}
-                className={`rounded-full px-3 py-1.5 text-sm ring-1 ${assigneeId === null ? 'bg-slate-900 text-white ring-slate-900' : 'bg-white text-slate-600 ring-slate-300 hover:ring-slate-500'}`}
+                onClick={() => setAssigneeIds([])}
+                className={`rounded-full px-3 py-1.5 text-sm ring-1 ${assigneeIds.length === 0 ? 'bg-slate-900 text-white ring-slate-900' : 'bg-white text-slate-600 ring-slate-300 hover:ring-slate-500'}`}
               >
-                Hech kim
+                Hech kim (o‘zlari oladi)
               </button>
               {project.members.map((m) => (
                 <button
                   key={m.userId}
                   type="button"
-                  aria-pressed={assigneeId === m.userId}
-                  onClick={() => setAssigneeId(m.userId)}
-                  className={`flex items-center gap-2 rounded-full py-1 pl-1 pr-3 text-sm ring-1 ${assigneeId === m.userId ? 'bg-slate-900 text-white ring-slate-900' : 'bg-white text-slate-800 ring-slate-300 hover:ring-slate-500'}`}
+                  aria-pressed={assigneeIds.includes(m.userId)}
+                  onClick={() => toggle(m.userId)}
+                  className={`flex items-center gap-2 rounded-full py-1 pl-1 pr-3 text-sm ring-1 ${assigneeIds.includes(m.userId) ? 'bg-slate-900 text-white ring-slate-900' : 'bg-white text-slate-800 ring-slate-300 hover:ring-slate-500'}`}
                 >
                   <Avatar person={m} size="sm" />
                   {m.name}
-                  <span className={assigneeId === m.userId ? 'text-xs text-slate-300' : 'text-xs text-slate-400'}>{roleTitle(m.role)}</span>
+                  <span className={assigneeIds.includes(m.userId) ? 'text-xs text-slate-300' : 'text-xs text-slate-400'}>{roleTitle(m.role)}</span>
                 </button>
               ))}
             </div>
@@ -113,7 +116,7 @@ export function CreateTaskDialog({ project, statusId, onClose }: { project: Proj
             <input type="time" value={dueTime} disabled={!dueDate} onChange={(e) => setDueTime(e.target.value)} className={inputClass} />
           </label>
         </div>
-        {dueDate && dueTime && <p className="-mt-2 text-xs text-slate-500">Soat o‘tishi bilan mas’ul, muallif va teamlead’ga Telegram’da xabar boradi.</p>}
+        {dueDate && dueTime && <p className="-mt-2 text-xs text-slate-500">Soat o‘tishi bilan mas’ullar, muallif va teamlead’ga Telegram’da xabar boradi.</p>}
 
         <fieldset className="space-y-2">
           <legend className="text-sm font-medium">Prioritet</legend>

@@ -2,12 +2,14 @@ import { Injectable, OnModuleInit } from '@nestjs/common';
 import { EventBus } from '../events/event-bus.js';
 import type { Event, Prisma } from '../generated/prisma/client.js';
 
-export type NotificationKind = 'assigned' | 'mentioned' | 'commented' | 'review' | 'added' | 'overdue' | 'digest' | 'chat_mention';
+export type NotificationKind = 'claimed' | 'assigned' | 'mentioned' | 'commented' | 'review' | 'added' | 'overdue' | 'digest' | 'chat_mention';
 
 /** Task eventlari payload'i (TasksService.taskEvent). */
 interface TaskPayload {
   projectId: string;
-  assigneeId: string | null;
+  assigneeIds: string[];
+  added?: string[];
+  claimed?: boolean;
   reporterId: string;
   userId?: string;
   commentId?: string;
@@ -26,7 +28,9 @@ export class NotificationRules implements OnModuleInit {
   onModuleInit(): void {
     this.bus.subscribe('task.assigned', 'notify:assigned', (e, tx) => {
       const p = e.payload as unknown as TaskPayload;
-      return this.enqueue(tx, e, 'assigned', [p.assigneeId]);
+      // "Men olaman": teamlead (muallif) biladi; oddiy tayinlash: qo'shilganlar xabar oladi.
+      if (p.claimed) return this.enqueue(tx, e, 'claimed', [p.reporterId]);
+      return this.enqueue(tx, e, 'assigned', p.added ?? []);
     });
 
     this.bus.subscribe('task.mentioned', 'notify:mentioned', (e, tx) => {
@@ -39,7 +43,7 @@ export class NotificationRules implements OnModuleInit {
       const p = e.payload as unknown as TaskPayload;
       const comment = p.commentId ? await tx.comment.findUnique({ where: { id: p.commentId }, select: { mentions: true } }) : null;
       const mentioned = new Set(comment?.mentions ?? []);
-      return this.enqueue(tx, e, 'commented', [p.assigneeId, p.reporterId].filter((id) => !id || !mentioned.has(id)));
+      return this.enqueue(tx, e, 'commented', [...(p.assigneeIds ?? []), p.reporterId].filter((id) => !id || !mentioned.has(id)));
     });
 
     // Review'ga o'tdi: muallif va loyihada taskni yopa oladiganlar (teamlead).
@@ -60,7 +64,7 @@ export class NotificationRules implements OnModuleInit {
         where: { projectId: p.projectId, role: { permissions: { has: 'task.close' } } },
         select: { userId: true },
       });
-      return this.enqueue(tx, e, 'overdue', [p.assigneeId, p.reporterId, ...closers.map((c) => c.userId)]);
+      return this.enqueue(tx, e, 'overdue', [...(p.assigneeIds ?? []), p.reporterId, ...closers.map((c) => c.userId)]);
     });
 
     // Chatda @mention: belgilanganga (ular chatni ko'ra oladiganlar orasidan tanlangan).

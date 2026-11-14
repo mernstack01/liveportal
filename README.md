@@ -84,9 +84,10 @@ Jonli namoyish (demo jamoa, kirish ID'lari, o'chirish buyrug'i): [docs/demo.md](
 | `PATCH`/`DELETE /projects/:projectId/members/:userId` | `project.member.manage`; o'zini o'zgartirib bo'lmaydi |
 | `GET /workspace/members` | workspace a'zosi |
 | `GET /projects/:projectId/tasks` (`?assignee=me`, `?statusId=`) | loyihani ko'ra oladigan odam |
-| `POST /projects/:projectId/tasks` | `task.create`; bajaruvchi berilsa `task.assign` ham. Bajaruvchi faqat loyiha a'zosi |
+| `POST /projects/:projectId/tasks` | `task.create`; `assigneeIds` (10 tagacha mas'ul) berilsa `task.assign` ham. Mas'ullar faqat loyiha a'zolari |
 | `GET /projects/:projectId/tasks/:taskRef` | task id yoki raqami (`LP-12` uchun `12`), izohlar bilan |
-| `PATCH /projects/:projectId/tasks/:taskRef` | maydon bo'yicha: `task.update`, `task.assign`; Done'ga o'tkazish yoki qaytarish `task.close` |
+| `PATCH /projects/:projectId/tasks/:taskRef` | maydon bo'yicha: `task.update`, `task.assign` (`assigneeIds` — to'liq ro'yxat); Done'ga o'tkazish yoki qaytarish `task.close` |
+| `POST` / `DELETE /projects/:projectId/tasks/:taskRef/claim` | "Men olaman" / "Taskdan chiqish": loyiha a'zosi o'zini mas'ullarga qo'shadi yoki chiqaradi, `task.update` yetarli |
 | `POST /projects/:projectId/tasks/:taskRef/comments` | `task.comment`; `@username` faqat loyiha a'zolari uchun ishlaydi |
 | `GET /tasks/mine` (`?all=true`) | barcha loyihalardagi menga berilgan ochiq tasklar |
 | `GET`/`POST`/`PATCH`/`DELETE /roles` | ro'yxat — har kim; yaratish va tahrirlash — `role.manage` (teamlead, admin, rahbar), o'zida yo'q ruxsatni berib bo'lmaydi |
@@ -100,12 +101,13 @@ Loyihadagi ruxsat = workspace roli + loyiha roli. Arxivdagi loyihada task yarati
 
 | Hodisa | Kimga |
 |---|---|
-| Task berildi | bajaruvchiga (tugmalar: ▶️ Boshladim, 👀 Review'ga, Ochish) |
+| Task berildi | yangi qo'shilgan mas'ullarga (tugmalar: ▶️ Boshladim, 👀 Review'ga, Ochish) |
+| Taskni o'zi oldi | muallifga: "🙋 Jasur taskni oldi" |
 | Izohda @mention | belgilangan odamga |
-| Izoh | bajaruvchi va muallifga (shu izohda mention qilinganlarga emas) |
+| Izoh | mas'ullar va muallifga (shu izohda mention qilinganlarga emas) |
 | Review'ga o'tdi | muallif va loyihadagi `task.close` egalariga (teamlead) |
 | Loyihaga qo'shildi | qo'shilgan odamga |
-| Muddati o'tdi | bajaruvchi, muallif va teamleadlarga. Soatli muddat — o'sha daqiqada (`DeadlineJob`), soatsiz — ertalab 09:00 |
+| Muddati o'tdi | mas'ullar, muallif va teamleadlarga. Soatli muddat — o'sha daqiqada (`DeadlineJob`), soatsiz — ertalab 09:00 |
 | Chatda @mention | belgilangan xodimga (mehmon belgilanmaydi) |
 | Ertalabki xulosa, 09:00 Toshkent | muddati o'tgan / bugun / ertaga taski bor har bir odamga, bitta xabar |
 

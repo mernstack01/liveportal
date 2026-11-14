@@ -177,7 +177,11 @@ export class NotificationSender implements OnApplicationBootstrap, OnApplication
 
     const task = await this.prisma.task.findUnique({
       where: { id: event.entityId },
-      include: { project: { select: { key: true, name: true } }, status: true, assignee: { select: { name: true } } },
+      include: {
+        project: { select: { key: true, name: true } },
+        status: true,
+        assignees: { orderBy: { createdAt: 'asc' }, select: { userId: true, user: { select: { name: true } } } },
+      },
     });
     if (!task) return null;
     const comment = payload.commentId
@@ -202,8 +206,8 @@ export class NotificationSender implements OnApplicationBootstrap, OnApplication
         priority: task.priority,
         statusName: task.status.name,
         statusCategory: task.status.category,
-        assigneeId: task.assigneeId,
-        assigneeName: task.assignee?.name ?? null,
+        assigneeIds: task.assignees.map((a) => a.userId),
+        assigneeName: task.assignees.map((a) => a.user.name).join(', ') || null,
       },
     };
   }

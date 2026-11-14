@@ -49,7 +49,7 @@ export class MorningJob {
             )`;
         const late = await tx.task.findMany({
           where: { id: { in: lateIds.map((r) => r.id) } },
-          include: { project: { select: { key: true, workspaceId: true } } },
+          include: { project: { select: { key: true, workspaceId: true } }, assignees: { select: { userId: true } } },
         });
         for (const t of late) {
           await recordEvent(tx, {
@@ -62,31 +62,33 @@ export class MorningJob {
               projectId: t.projectId,
               key: `${t.project.key}-${t.number}`,
               title: t.title,
-              assigneeId: t.assigneeId,
+              assigneeIds: t.assignees.map((a) => a.userId),
               reporterId: t.reporterId,
               dueDate: t.dueDate!.toISOString().slice(0, 10),
             },
           });
         }
 
-        // 2) Xulosa: ertagacha muddati bor ochiq tasklari bo'lgan, Telegram'ga ulangan odamlar.
-        const due = await tx.task.findMany({
+        // 2) Xulosa: ertagacha muddati bor ochiq tasklari bo'lgan, Telegram'ga ulangan mas'ullar.
+        const due = await tx.taskAssignee.findMany({
           where: {
-            assignee: { telegramId: { not: null } },
-            dueDate: { lte: dayStart(tomorrow) },
-            status: { category: { notIn: [...CLOSED] } },
-            project: { status: { not: 'ARCHIVED' } },
+            user: { telegramId: { not: null } },
+            task: {
+              dueDate: { lte: dayStart(tomorrow) },
+              status: { category: { notIn: [...CLOSED] } },
+              project: { status: { not: 'ARCHIVED' } },
+            },
           },
-          select: { assigneeId: true, project: { select: { workspaceId: true } } },
+          select: { userId: true, task: { select: { project: { select: { workspaceId: true } } } } },
         });
-        const recipients = new Map(due.map((t) => [`${t.project.workspaceId}:${t.assigneeId}`, t]));
-        for (const t of recipients.values()) {
+        const recipients = new Map(due.map((a) => [`${a.task.project.workspaceId}:${a.userId}`, { workspaceId: a.task.project.workspaceId, userId: a.userId }]));
+        for (const r of recipients.values()) {
           await recordEvent(tx, {
-            workspaceId: t.project.workspaceId,
+            workspaceId: r.workspaceId,
             type: 'user.digest',
             actorId: null,
             entityType: 'user',
-            entityId: t.assigneeId!,
+            entityId: r.userId,
             payload: { date: today },
           });
         }

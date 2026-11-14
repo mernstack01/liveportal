@@ -55,7 +55,8 @@ export interface Task {
   dueTime: string | null
   completedAt: string | null
   status: Omit<WorkflowStatus, 'order'>
-  assignee: Person | null
+  /** Mas'ullar: bir nechta odam birga javobgar bo'lishi mumkin. */
+  assignees: Person[]
   reporter: Person | null
   createdAt: string
   updatedAt: string
@@ -101,7 +102,7 @@ export interface Dashboard {
     number: number
     title: string
     project: { id: string; name: string }
-    assignee: DashboardPerson | null
+    assignees: DashboardPerson[]
     dueDate: string
     dueTime: string | null
     daysLate: number
@@ -113,7 +114,7 @@ export interface Dashboard {
     number: number
     title: string
     project: { id: string; name: string }
-    assignee: DashboardPerson | null
+    assignees: DashboardPerson[]
     completedAt: string
   }[]
 }

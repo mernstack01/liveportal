@@ -46,9 +46,9 @@ describe('Rahbar dashboardi (e2e)', () => {
     const statuses: Record<string, string> = Object.fromEntries(project.body.statuses.map((s: { name: string; id: string }) => [s.name, s.id]));
     await http().post(`/api/v1/projects/${projectId}/members`).set(as('lead')).send({ userId: users.mentor.id }).expect(201);
     const create = (body: object) => http().post(`/api/v1/projects/${projectId}/tasks`).set(as('lead')).send(body).expect(201);
-    await create({ title: 'Kechikkan', assigneeId: users.mentor.id, dueDate: addDays(today, -3), statusId: statuses['In progress'] });
-    await create({ title: 'Review’da', assigneeId: users.mentor.id, statusId: statuses.Review });
-    await create({ title: 'Yopildi', assigneeId: users.mentor.id, statusId: statuses.Done });
+    await create({ title: 'Kechikkan', assigneeIds: [users.mentor.id], dueDate: addDays(today, -3), statusId: statuses['In progress'] });
+    await create({ title: 'Review’da', assigneeIds: [users.mentor.id], statusId: statuses.Review });
+    await create({ title: 'Yopildi', assigneeIds: [users.mentor.id], statusId: statuses.Done });
     await create({ title: 'Egasiz' });
   });
 
@@ -87,7 +87,7 @@ describe('Rahbar dashboardi (e2e)', () => {
     });
 
     const late = body.overdue.find((t: { key: string }) => t.key === `${key}-1`);
-    expect(late).toMatchObject({ title: 'Kechikkan', daysLate: 3, assignee: { userId: users.mentor.id } });
+    expect(late).toMatchObject({ title: 'Kechikkan', daysLate: 3, assignees: [expect.objectContaining({ userId: users.mentor.id })] });
 
     const mentor = body.people.find((p: { userId: string }) => p.userId === users.mentor.id);
     expect(mentor).toMatchObject({ open: 2, inProgress: 1, review: 1, overdue: 1, doneThisWeek: 1 });

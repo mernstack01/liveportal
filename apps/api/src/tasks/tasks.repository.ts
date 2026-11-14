@@ -8,7 +8,7 @@ const person = { select: { id: true, name: true, telegramUsername: true, avatarU
 
 export const taskInclude = {
   status: { select: { id: true, name: true, category: true, color: true } },
-  assignee: person,
+  assignees: { orderBy: { createdAt: 'asc' }, select: { userId: true, user: person } },
   reporter: person,
   project: { select: { id: true, key: true, name: true } },
 } satisfies Prisma.TaskInclude;
@@ -39,7 +39,11 @@ export class TasksRepository {
 
   list(projectId: string, filter: { assigneeId?: string; statusId?: string }) {
     return this.prisma.task.findMany({
-      where: { projectId, ...filter },
+      where: {
+        projectId,
+        ...(filter.statusId ? { statusId: filter.statusId } : {}),
+        ...(filter.assigneeId ? { assignees: { some: { userId: filter.assigneeId } } } : {}),
+      },
       orderBy: { number: 'desc' },
       take: 500,
       include: taskInclude,
@@ -50,7 +54,7 @@ export class TasksRepository {
   mine(workspaceId: string, userId: string, includeClosed: boolean) {
     return this.prisma.task.findMany({
       where: {
-        assigneeId: userId,
+        assignees: { some: { userId } },
         project: { workspaceId, status: { not: 'ARCHIVED' } },
         ...(includeClosed ? {} : { status: { category: { notIn: ['DONE', 'CANCELED'] } } }),
       },
@@ -64,6 +68,19 @@ export class TasksRepository {
     return statusId
       ? this.prisma.workflowStatus.findFirst({ where: { id: statusId, projectId } })
       : this.prisma.workflowStatus.findFirst({ where: { projectId }, orderBy: { order: 'asc' } });
+  }
+
+  /** Hammasi loyiha a'zosimi (mas'ullar faqat a'zolardan). */
+  async allProjectMembers(projectId: string, userIds: string[]) {
+    if (userIds.length === 0) return true;
+    const count = await this.prisma.projectMember.count({ where: { projectId, userId: { in: userIds } } });
+    return count === new Set(userIds).size;
+  }
+
+  /** Mas'ullar ro'yxatini to'liq almashtiradi. */
+  async setAssignees(db: Db, taskId: string, userIds: string[]) {
+    await db.taskAssignee.deleteMany({ where: { taskId, userId: { notIn: userIds } } });
+    await db.taskAssignee.createMany({ data: userIds.map((userId) => ({ taskId, userId })), skipDuplicates: true });
   }
 
   isProjectMember(projectId: string, userId: string) {
@@ -96,6 +113,10 @@ export class TasksRepository {
 
   update(db: Db, taskId: string, data: Prisma.TaskUncheckedUpdateInput) {
     return db.task.update({ where: { id: taskId }, data, include: taskInclude });
+  }
+
+  reload(db: Db, taskId: string) {
+    return db.task.findUniqueOrThrow({ where: { id: taskId }, include: taskInclude });
   }
 
   createComment(db: Db, data: Prisma.CommentUncheckedCreateInput) {

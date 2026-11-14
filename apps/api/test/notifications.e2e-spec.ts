@@ -110,7 +110,7 @@ describe('Telegram bildirishnomalari (e2e)', () => {
     const res = await http()
       .post(`/api/v1/projects/${projectId}/tasks`)
       .set(as('lead'))
-      .send({ title: 'Login <sahifasi>', assigneeId: users.mentor.id, priority: 'URGENT', dueDate: '2026-11-20' })
+      .send({ title: 'Login <sahifasi>', assigneeIds: [users.mentor.id], priority: 'URGENT', dueDate: '2026-11-20' })
       .expect(201);
     taskId = res.body.id;
     await flush();
@@ -127,8 +127,27 @@ describe('Telegram bildirishnomalari (e2e)', () => {
     ]);
   });
 
+  it('“Men olaman”: muallif (teamlead)ga “taskni oldi” xabari, ikki mas’ulning ikkalasiga “task berdi”', async () => {
+    const free = await http().post(`/api/v1/projects/${projectId}/tasks`).set(as('lead')).send({ title: 'Egasiz' }).expect(201);
+    await http().post(`/api/v1/projects/${projectId}/tasks/${free.body.number}/claim`).set(as('helper')).expect(201);
+    await flush();
+    const claimed = take();
+    expect(claimed.map((s) => s.chatId)).toEqual([chat('lead')]);
+    expect(claimed[0].message.text).toContain('🙋 E2E helper taskni oldi');
+
+    await http()
+      .post(`/api/v1/projects/${projectId}/tasks`)
+      .set(as('lead'))
+      .send({ title: 'Ikkalasiga', assigneeIds: [users.mentor.id, users.helper.id] })
+      .expect(201);
+    await flush();
+    const both = take();
+    expect(both.map((s) => s.chatId).sort()).toEqual([chat('mentor'), chat('helper')].sort());
+    expect(both.every((s) => s.message.buttons[0]?.[0]?.text === '▶️ Boshladim')).toBe(true);
+  });
+
   it('o‘ziga task bergan odamga xabar bormaydi', async () => {
-    await http().post(`/api/v1/projects/${projectId}/tasks`).set(as('lead')).send({ title: 'O‘zim', assigneeId: users.lead.id }).expect(201);
+    await http().post(`/api/v1/projects/${projectId}/tasks`).set(as('lead')).send({ title: 'O‘zim', assigneeIds: [users.lead.id] }).expect(201);
     await flush();
     expect(take()).toEqual([]);
   });
@@ -190,7 +209,7 @@ describe('Telegram bildirishnomalari (e2e)', () => {
   });
 
   it('vaqtinchalik xato: qayta urinish rejalashtiriladi; doimiy xato: failed', async () => {
-    await http().patch(`/api/v1/projects/${projectId}/tasks/${taskId}`).set(as('lead')).send({ assigneeId: users.helper.id }).expect(200);
+    await http().patch(`/api/v1/projects/${projectId}/tasks/${taskId}`).set(as('lead')).send({ assigneeIds: [users.helper.id] }).expect(200);
     await app.get(OutboxDispatcher).drain();
     telegram.failNext = new Error('ECONNRESET');
     await app.get(NotificationSender).drain();

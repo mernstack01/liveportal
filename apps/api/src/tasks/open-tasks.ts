@@ -14,7 +14,7 @@ export interface OpenTask {
 export async function openTasksFor(prisma: PrismaService, userId: string): Promise<OpenTask[]> {
   const rows = await prisma.task.findMany({
     where: {
-      assigneeId: userId,
+      assignees: { some: { userId } },
       status: { category: { notIn: ['DONE', 'CANCELED'] } },
       project: { status: { not: 'ARCHIVED' } },
     },

@@ -14,7 +14,8 @@ export const createTaskSchema = z
     priority: z.enum(PRIORITIES).optional(),
     dueDate: dateOnly.optional(),
     dueTime: time.optional(),
-    assigneeId: id.optional(),
+    /** Mas'ullar: bir nechta odam birga javobgar bo'lishi mumkin. */
+    assigneeIds: z.array(id).max(10).optional(),
     /** Berilmasa, loyihaning birinchi statusi (Backlog). */
     statusId: id.optional(),
   })
@@ -28,7 +29,8 @@ export const updateTaskSchema = z
     priority: z.enum(PRIORITIES),
     dueDate: dateOnly.nullable(),
     dueTime: time.nullable(),
-    assigneeId: id.nullable(),
+    /** Mas'ullar ro'yxati to'liq almashtiriladi ([] — hech kim). */
+    assigneeIds: z.array(id).max(10),
     statusId: id,
   })
   .partial()

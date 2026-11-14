@@ -4,6 +4,7 @@ import { useNavigate, useParams } from 'react-router'
 import { api, ApiError } from '../api'
 import { Avatar, Button, ErrorText } from '../components/ui'
 import { formatDateTime, humanError, isOverdue, PRIORITY_LABELS } from '../labels'
+import { useMe } from '../me'
 import { keys, useProject, useTask } from '../queries'
 import type { Priority, ProjectDetail, StatusCategory, TaskDetail } from '../types'
 import { Comments } from './Comments'
@@ -19,7 +20,7 @@ type Patch = Partial<{
   priority: Priority
   dueDate: string | null
   dueTime: string | null
-  assigneeId: string | null
+  assigneeIds: string[]
   statusId: string
 }>
 
@@ -86,6 +87,10 @@ function TaskBody({ task, project, queryRef }: { task: TaskDetail; project: Proj
   const archived = project.status === 'ARCHIVED'
   const can = (p: string) => !archived && project.myPermissions.includes(p)
   const isClosed = CLOSED.includes(task.status.category)
+  const { me } = useMe()
+  const assigneeIds = task.assignees.map((a) => a.userId)
+  const iAmAssignee = assigneeIds.includes(me.id)
+  const isMember = project.members.some((m) => m.userId === me.id)
 
   const update = useMutation({
     mutationFn: (patch: Patch) =>
@@ -99,6 +104,18 @@ function TaskBody({ task, project, queryRef }: { task: TaskDetail; project: Proj
     onError: (e) => setError(humanError(e)),
   })
   const save = (patch: Patch) => update.mutate(patch)
+
+  /** "Men olaman" / "Taskdan chiqish" — o'zini mas'ullarga qo'shish (task.update yetarli). */
+  const claim = useMutation({
+    mutationFn: (join: boolean) => api<TaskDetail>(`/projects/${project.id}/tasks/${task.id}/claim`, { method: join ? 'POST' : 'DELETE' }),
+    onMutate: () => setError(null),
+    onSuccess: (updated) => {
+      queryClient.setQueryData(keys.task(project.id, queryRef), updated)
+      void queryClient.invalidateQueries({ queryKey: keys.tasks(project.id) })
+      void queryClient.invalidateQueries({ queryKey: ['my-tasks'] })
+    },
+    onError: (e) => setError(humanError(e)),
+  })
 
   return (
     <div className="space-y-6">
@@ -130,24 +147,49 @@ function TaskBody({ task, project, queryRef }: { task: TaskDetail; project: Proj
             ))}
           </select>
         </Row>
-        <Row label="Bajaruvchi">
-          <select
-            aria-label="Bajaruvchi"
-            value={task.assignee?.userId ?? ''}
-            disabled={!can('task.assign')}
-            onChange={(e) => save({ assigneeId: e.target.value || null })}
-            className={fieldClass}
-          >
-            <option value="">— Hech kim</option>
-            {project.members.map((m) => (
-              <option key={m.userId} value={m.userId}>
-                {m.name}
-              </option>
-            ))}
-            {task.assignee && !project.members.some((m) => m.userId === task.assignee?.userId) && (
-              <option value={task.assignee.userId}>{task.assignee.name} (loyihada emas)</option>
+        <Row label="Mas’ullar">
+          <div className="space-y-2">
+            <div className="flex flex-wrap gap-1.5">
+              {can('task.assign')
+                ? // Tayinlash huquqi bor odam: bosib qo'shadi yoki olib tashlaydi (bir nechta odam).
+                  project.members.map((m) => {
+                    const on = assigneeIds.includes(m.userId)
+                    return (
+                      <button
+                        key={m.userId}
+                        type="button"
+                        aria-pressed={on}
+                        onClick={() => save({ assigneeIds: on ? assigneeIds.filter((id) => id !== m.userId) : [...assigneeIds, m.userId] })}
+                        className={`flex items-center gap-1.5 rounded-full py-0.5 pl-0.5 pr-2.5 text-xs ring-1 ${on ? 'bg-slate-900 text-white ring-slate-900' : 'bg-white text-slate-600 ring-slate-200 hover:ring-slate-400'}`}
+                      >
+                        <Avatar person={m} size="sm" />
+                        {m.name}
+                      </button>
+                    )
+                  })
+                : task.assignees.map((a) => (
+                    <span key={a.userId} className="flex items-center gap-1.5 rounded-full bg-slate-100 py-0.5 pl-0.5 pr-2.5 text-xs text-slate-700">
+                      <Avatar person={a} size="sm" />
+                      {a.name}
+                    </span>
+                  ))}
+              {!can('task.assign') && task.assignees.length === 0 && <span className="text-sm text-amber-700">Hali hech kim olmagan</span>}
+            </div>
+            {/* Dasturchi o'zi oladi: egasiz taskni yoki boshqalarga qo'shilib */}
+            {can('task.update') && isMember && (
+              <div className="flex gap-2">
+                {iAmAssignee ? (
+                  <Button type="button" variant="ghost" className="px-2 py-1 text-xs" disabled={claim.isPending} onClick={() => claim.mutate(false)}>
+                    Taskdan chiqish
+                  </Button>
+                ) : (
+                  <Button type="button" variant="secondary" className="px-2.5 py-1 text-xs" disabled={claim.isPending} onClick={() => claim.mutate(true)}>
+                    🙋 {task.assignees.length === 0 ? 'Men olaman' : 'Men ham qo‘shilaman'}
+                  </Button>
+                )}
+              </div>
             )}
-          </select>
+          </div>
         </Row>
         <Row label="Prioritet">
           <select aria-label="Prioritet" value={task.priority} disabled={!can('task.update')} onChange={(e) => save({ priority: e.target.value as Priority })} className={fieldClass}>
@@ -166,7 +208,7 @@ function TaskBody({ task, project, queryRef }: { task: TaskDetail; project: Proj
               value={task.dueDate?.slice(0, 10) ?? ''}
               disabled={!can('task.update')}
               onChange={(e) => save({ dueDate: e.target.value || null })}
-              className={`${fieldClass} ${!isClosed && isOverdue(task.dueDate, task.dueTime) ? 'border-red-300 text-red-700' : ''}`}
+              className={`${fieldClass} min-w-0 flex-1 ${!isClosed && isOverdue(task.dueDate, task.dueTime) ? 'border-red-300 text-red-700' : ''}`}
             />
             {/* Soat ixtiyoriy: bo'lsa, shu daqiqa o'tishi bilan Telegram'ga "muddati o'tdi" boradi */}
             <input
@@ -175,7 +217,7 @@ function TaskBody({ task, project, queryRef }: { task: TaskDetail; project: Proj
               value={task.dueTime ?? ''}
               disabled={!can('task.update') || !task.dueDate}
               onChange={(e) => save({ dueTime: e.target.value || null })}
-              className={`${fieldClass} w-32 shrink-0 ${!isClosed && isOverdue(task.dueDate, task.dueTime) ? 'border-red-300 text-red-700' : ''}`}
+              className={`${fieldClass} w-28! shrink-0 ${!isClosed && isOverdue(task.dueDate, task.dueTime) ? 'border-red-300 text-red-700' : ''}`}
             />
             {!isClosed && isOverdue(task.dueDate, task.dueTime) && <span className="shrink-0 text-xs font-medium text-red-600">kechikdi</span>}
           </div>

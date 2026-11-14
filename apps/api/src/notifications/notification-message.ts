@@ -19,7 +19,8 @@ export interface MessageTask {
   priority: string;
   statusName: string;
   statusCategory: string;
-  assigneeId: string | null;
+  assigneeIds: string[];
+  /** Mas'ullar ismlari vergul bilan, yo'q bo'lsa null. */
   assigneeName: string | null;
 }
 
@@ -66,7 +67,7 @@ function openButton(webOrigin: string, path: string): MessageButton[] {
 function taskButtons(input: MessageInput, task: MessageTask): MessageButton[][] {
   const actions: MessageButton[] = [];
   // Holatni tugma bilan faqat bajaruvchining o'zi o'zgartiradi.
-  if (task.assigneeId === input.recipientId) {
+  if (task.assigneeIds.includes(input.recipientId)) {
     if (task.statusCategory === 'TODO') actions.push({ text: '▶️ Boshladim', callbackData: `ts:${task.id}:start` });
     if (task.statusCategory === 'TODO' || task.statusCategory === 'IN_PROGRESS') {
       actions.push({ text: '👀 Review’ga', callbackData: `ts:${task.id}:review` });
@@ -108,6 +109,9 @@ export function renderMessage(input: MessageInput): RenderedMessage {
       if (task.dueDate) lines.push(`⏰ Muddat: ${day(task.dueDate, task.dueTime)}`);
       if (PRIORITY_MARK[task.priority]) lines.push(PRIORITY_MARK[task.priority]);
       break;
+    case 'claimed':
+      lines.push(`🙋 ${actor} taskni oldi`, head, `📁 ${escapeHtml(task.projectName)}`);
+      break;
     case 'mentioned':
       lines.push(`💬 ${actor} sizni izohda belgiladi`, head);
       break;
@@ -118,7 +122,7 @@ export function renderMessage(input: MessageInput): RenderedMessage {
       lines.push(`👀 Review’ga o‘tdi`, head, `👤 Bajaruvchi: ${escapeHtml(task.assigneeName ?? '—')}`, `📁 ${escapeHtml(task.projectName)}`);
       break;
     case 'overdue':
-      if (task.assigneeId === input.recipientId) lines.push(`⏰ Taskingiz muddati o‘tdi`, head);
+      if (task.assigneeIds.includes(input.recipientId)) lines.push(`⏰ Taskingiz muddati o‘tdi`, head);
       else lines.push(`⏰ Muddati o‘tdi`, head, `👤 Bajaruvchi: ${escapeHtml(task.assigneeName ?? '—')}`);
       if (task.dueDate) lines.push(`📅 Muddat edi: ${day(task.dueDate, task.dueTime)}`);
       lines.push(`📁 ${escapeHtml(task.projectName)}`);

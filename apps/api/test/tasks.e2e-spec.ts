@@ -80,7 +80,7 @@ describe('Tasklar, izohlar va outbox (e2e)', () => {
     const res = await http()
       .post(tasksUrl())
       .set(as('lead'))
-      .send({ title: 'Login sahifasi', priority: 'HIGH', dueDate: '2026-11-20', assigneeId: users.mentor.id })
+      .send({ title: 'Login sahifasi', priority: 'HIGH', dueDate: '2026-11-20', assigneeIds: [users.mentor.id] })
       .expect(201);
     task1 = res.body.id;
     expect(res.body).toMatchObject({
@@ -88,21 +88,21 @@ describe('Tasklar, izohlar va outbox (e2e)', () => {
       number: 1,
       priority: 'HIGH',
       status: { name: 'Backlog', category: 'TODO' },
-      assignee: { userId: users.mentor.id },
+      assignees: [expect.objectContaining({ userId: users.mentor.id })],
       reporter: { userId: users.lead.id },
       completedAt: null,
       comments: [],
     });
     expect(await events('task.created')).toHaveLength(1);
     const [assigned] = await events('task.assigned');
-    expect(assigned.payload).toMatchObject({ key: `${key}-1`, assigneeId: users.mentor.id, previousAssigneeId: null, projectId });
+    expect(assigned.payload).toMatchObject({ key: `${key}-1`, assigneeIds: [users.mentor.id], added: [users.mentor.id], removed: [], projectId });
 
     const second = await http().post(tasksUrl()).set(as('mentor')).send({ title: 'Ikkinchi', statusId: statuses['To do'] }).expect(201);
-    expect(second.body).toMatchObject({ key: `${key}-2`, assignee: null, status: { name: 'To do' } });
+    expect(second.body).toMatchObject({ key: `${key}-2`, assignees: [], status: { name: 'To do' } });
   });
 
   it('noto‘g‘ri bajaruvchi yoki status 400; ruxsatsiz yaratish 403; begonaga loyiha 404', async () => {
-    await http().post(tasksUrl()).set(as('lead')).send({ title: 'X', assigneeId: users.outsider.id }).expect(400);
+    await http().post(tasksUrl()).set(as('lead')).send({ title: 'X', assigneeIds: [users.outsider.id] }).expect(400);
     await http().post(tasksUrl()).set(as('lead')).send({ title: 'X', statusId: 'yoq' }).expect(400);
     await http().post(tasksUrl()).set(as('lead')).send({ title: '' }).expect(400);
     await http().post(tasksUrl()).set(as('guest')).send({ title: 'Mehmon' }).expect(403);
@@ -149,15 +149,15 @@ describe('Tasklar, izohlar va outbox (e2e)', () => {
     const res = await http()
       .patch(`${tasksUrl()}/${task1}`)
       .set(as('mentor'))
-      .send({ title: 'Login sahifasi (v2)', dueDate: null, assigneeId: users.lead.id })
+      .send({ title: 'Login sahifasi (v2)', dueDate: null, assigneeIds: [users.lead.id] })
       .expect(200);
-    expect(res.body).toMatchObject({ title: 'Login sahifasi (v2)', dueDate: null, assignee: { userId: users.lead.id } });
+    expect(res.body).toMatchObject({ title: 'Login sahifasi (v2)', dueDate: null, assignees: [expect.objectContaining({ userId: users.lead.id })] });
     const assigned = await events('task.assigned');
-    expect(assigned.at(-1)?.payload).toMatchObject({ assigneeId: users.lead.id, previousAssigneeId: users.mentor.id });
+    expect(assigned.at(-1)?.payload).toMatchObject({ assigneeIds: [users.lead.id], added: [users.lead.id], removed: [users.mentor.id] });
     expect((await events('task.updated')).at(-1)?.payload).toMatchObject({ fields: ['title', 'dueDate'] });
 
     await http().patch(`${tasksUrl()}/${task1}`).set(as('guest')).send({ title: 'Mehmon' }).expect(403);
-    await http().patch(`${tasksUrl()}/${task1}`).set(as('lead')).send({ assigneeId: users.outsider.id }).expect(400);
+    await http().patch(`${tasksUrl()}/${task1}`).set(as('lead')).send({ assigneeIds: [users.outsider.id] }).expect(400);
     await http().patch(`${tasksUrl()}/${task1}`).set(as('lead')).send({}).expect(400);
   });
 
@@ -186,6 +186,50 @@ describe('Tasklar, izohlar va outbox (e2e)', () => {
     const pending = await prisma.event.count({ where: { publishedAt: null, entityId: { in: [projectId, task1] } } });
     expect(pending).toBe(0);
     expect(await dispatcher.drain()).toBe(0);
+  });
+
+  it('bir nechta mas’ul: ikkalasi ham javobgar, ikkalasining tasklari ro‘yxatida', async () => {
+    const res = await http()
+      .post(tasksUrl())
+      .set(as('lead'))
+      .send({ title: 'Juft ish', assigneeIds: [users.mentor.id, users.lead.id] })
+      .expect(201);
+    expect(res.body.assignees.map((a: { userId: string }) => a.userId).sort()).toEqual([users.mentor.id, users.lead.id].sort());
+    const [event] = await events('task.assigned', res.body.id);
+    expect((event.payload as { added: string[] }).added.sort()).toEqual([users.mentor.id, users.lead.id].sort());
+
+    for (const who of ['mentor', 'lead'] as Who[]) {
+      const mine = await http().get('/api/v1/tasks/mine').set(as(who)).expect(200);
+      expect(mine.body.map((t: { id: string }) => t.id)).toContain(res.body.id);
+    }
+    const filtered = await http().get(`${tasksUrl()}?assignee=me`).set(as('mentor')).expect(200);
+    expect(filtered.body.map((t: { id: string }) => t.id)).toContain(res.body.id);
+
+    const one = await http().patch(`${tasksUrl()}/${res.body.id}`).set(as('lead')).send({ assigneeIds: [users.lead.id] }).expect(200);
+    expect(one.body.assignees.map((a: { userId: string }) => a.userId)).toEqual([users.lead.id]);
+    const none = await http().patch(`${tasksUrl()}/${res.body.id}`).set(as('lead')).send({ assigneeIds: [] }).expect(200);
+    expect(none.body.assignees).toEqual([]);
+  });
+
+  it('“Men olaman”: egasiz taskni dasturchi oladi, boshqasi qo‘shiladi, chiqib ketadi; mehmon ololmaydi', async () => {
+    const free = await http().post(tasksUrl()).set(as('lead')).send({ title: 'Egasiz task' }).expect(201);
+    const claim = (who: Who) => http().post(`${tasksUrl()}/${free.body.number}/claim`).set(as(who));
+
+    const taken = await claim('mentor').expect(201);
+    expect(taken.body.assignees.map((a: { userId: string }) => a.userId)).toEqual([users.mentor.id]);
+    const [event] = await events('task.assigned', free.body.id);
+    expect(event).toMatchObject({ actorId: users.mentor.id, payload: expect.objectContaining({ claimed: true, added: [users.mentor.id] }) });
+
+    // ikkinchi marta — o'zgarmaydi; teamlead ham qo'shiladi
+    await claim('mentor').expect(201);
+    const both = await claim('lead').expect(201);
+    expect(both.body.assignees).toHaveLength(2);
+
+    await claim('guest').expect(403);
+    await claim('outsider').expect(404);
+
+    const left = await http().delete(`${tasksUrl()}/${free.body.number}/claim`).set(as('mentor')).expect(200);
+    expect(left.body.assignees.map((a: { userId: string }) => a.userId)).toEqual([users.lead.id]);
   });
 
   it('arxivdagi loyihada task yaratib ham, izoh yozib ham bo‘lmaydi', async () => {

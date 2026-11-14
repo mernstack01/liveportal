@@ -34,7 +34,7 @@ export class DeadlineJob {
       const deadlines = new Map(due.map((d) => [d.id, d.deadline]));
       const tasks = await tx.task.findMany({
         where: { id: { in: [...deadlines.keys()] } },
-        include: { project: { select: { key: true, workspaceId: true } } },
+        include: { project: { select: { key: true, workspaceId: true } }, assignees: { select: { userId: true } } },
       });
       for (const t of tasks) {
         await recordEvent(tx, {
@@ -47,7 +47,7 @@ export class DeadlineJob {
             projectId: t.projectId,
             key: `${t.project.key}-${t.number}`,
             title: t.title,
-            assigneeId: t.assigneeId,
+            assigneeIds: t.assignees.map((a) => a.userId),
             reporterId: t.reporterId,
             dueDate: t.dueDate!.toISOString().slice(0, 10),
             dueTime: t.dueTime,
