@@ -13,3 +13,6 @@ apps/api/src/generated/
 
 # Server zaxiralari (deploy/backup.sh)
 deploy/backups/
+
+# Demo video (katta fayl, git emas)
+docs/media/*.mp4
