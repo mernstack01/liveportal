@@ -9,6 +9,7 @@ import { HealthController } from './health/health.controller.js';
 import { InvitesModule } from './invites/invites.module.js';
 import { NotificationsModule } from './notifications/notifications.module.js';
 import { ProjectsModule } from './projects/projects.module.js';
+import { SchedulerModule } from './scheduler/scheduler.module.js';
 import { TasksModule } from './tasks/tasks.module.js';
 import { WorkspaceModule } from './workspace/workspace.module.js';
 
@@ -23,6 +24,7 @@ import { WorkspaceModule } from './workspace/workspace.module.js';
     ProjectsModule,
     TasksModule,
     NotificationsModule,
+    SchedulerModule,
     BotModule,
   ],
   controllers: [HealthController],

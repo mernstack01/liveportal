@@ -19,6 +19,20 @@ export abstract class TelegramGateway {
   abstract send(chatId: string, message: RenderedMessage): Promise<void>;
 }
 
+/** Bizning tugma tavsifimiz → grammY klaviaturasi (bot javoblarida ham ishlatiladi). */
+export function toKeyboard(buttons: RenderedMessage['buttons']): InlineKeyboard | undefined {
+  if (buttons.length === 0) return undefined;
+  const keyboard = new InlineKeyboard();
+  for (const row of buttons) {
+    for (const b of row) {
+      if ('callbackData' in b) keyboard.text(b.text, b.callbackData);
+      else keyboard.webApp(b.text, b.webAppUrl);
+    }
+    keyboard.row();
+  }
+  return keyboard;
+}
+
 @Injectable()
 export class GrammyTelegramGateway extends TelegramGateway {
   private readonly api?: Api;
@@ -31,19 +45,11 @@ export class GrammyTelegramGateway extends TelegramGateway {
 
   async send(chatId: string, message: RenderedMessage): Promise<void> {
     if (!this.api) throw new TelegramPermanentError('TELEGRAM_BOT_TOKEN yo‘q');
-    const keyboard = new InlineKeyboard();
-    for (const row of message.buttons) {
-      for (const b of row) {
-        if ('callbackData' in b) keyboard.text(b.text, b.callbackData);
-        else keyboard.webApp(b.text, b.webAppUrl);
-      }
-      keyboard.row();
-    }
     try {
       await this.api.sendMessage(chatId, message.text, {
         parse_mode: 'HTML',
         link_preview_options: { is_disabled: true },
-        reply_markup: message.buttons.length > 0 ? keyboard : undefined,
+        reply_markup: toKeyboard(message.buttons),
       });
     } catch (error) {
       if (error instanceof GrammyError) {

@@ -2,7 +2,7 @@
 
 > IT Live Academy uchun ichki boshqaruv portali — mentorlar AI bilan qiladigan loyihalarni, tasklarni, jamoalarni va kommunikatsiyani bitta joyda boshqarish.
 
-**Holat:** 🟢 MVP-0, 7-kun tayyor: Telegram orqali kirish, loyihalar va tasklar (API + web: kanban, task paneli, "Mening tasklarim"), Telegram bildirishnomalari tugmalar bilan. Reja: [docs/09-fast-track.md](docs/09-fast-track.md)
+**Holat:** 🟢 MVP-0, 8-kun tayyor: Telegram orqali kirish, loyihalar va tasklar (API + web: kanban, task paneli, "Mening tasklarim"), Telegram bildirishnomalari tugmalar bilan, ertalabki xulosa va bot buyruqlari `/today`, `/mytasks`. Reja: [docs/09-fast-track.md](docs/09-fast-track.md)
 
 ## Muammo (qisqa)
 
@@ -99,11 +99,13 @@ Loyihadagi ruxsat = workspace roli + loyiha roli. Arxivdagi loyihada task yarati
 | Izoh | bajaruvchi va muallifga (shu izohda mention qilinganlarga emas) |
 | Review'ga o'tdi | muallif va loyihadagi `task.close` egalariga (teamlead) |
 | Loyihaga qo'shildi | qo'shilgan odamga |
+| Muddati o'tdi (ertalabki ish) | muallif va teamleadlarga (bajaruvchi buni xulosadan biladi) |
+| Ertalabki xulosa, 09:00 Toshkent | muddati o'tgan / bugun / ertaga taski bor har bir odamga, bitta xabar |
 
-Hech kimga o'zi qilgan ish haqida xabar kelmaydi. Navbat `Notification` jadvalida: qatorlar event bilan bir tranzaksiyada yoziladi, `NotificationSender` har `NOTIFY_POLL_MS` da yuboradi (429 da kutadi, tarmoq xatosida 5 marta qayta urinadi, bot bloklangan bo'lsa `failed`). "Ochish" tugmasi faqat `WEB_ORIGIN` https bo'lganda chiqadi.
+Hech kimga o'zi qilgan ish haqida xabar kelmaydi. Ertalabki ish (`MorningJob`) kuniga bir marta bajariladi (`JobRun`): server 09:00 da o'chiq bo'lsa, yoqilganda o'sha kun uchun bajariladi. Bot: `/today`, `/mytasks`, `/help`. Navbat `Notification` jadvalida: qatorlar event bilan bir tranzaksiyada yoziladi, `NotificationSender` har `NOTIFY_POLL_MS` da yuboradi (429 da kutadi, tarmoq xatosida 5 marta qayta urinadi, bot bloklangan bo'lsa `failed`). "Ochish" tugmasi faqat `WEB_ORIGIN` https bo'lganda chiqadi.
 
 **Eventlar (outbox):** har o'zgarish `Event` jadvaliga o'sha tranzaksiyada yoziladi. `OutboxDispatcher` har `OUTBOX_POLL_MS` (2 soniya) da `publishedAt IS NULL` eventlarni `FOR UPDATE SKIP LOCKED` bilan olib, `EventBus` obunachilariga tarqatadi. Modul eventga shunday obuna bo'ladi: `eventBus.subscribe('task.assigned', 'nom', handler)`.
 
 ## Keyingi qadam
 
-`docs/09-fast-track.md` bo'yicha 8-kun: cron (`due_soon`, `overdue`, 09:00 dagi digest) va bot buyruqlari `/mytasks`, `/today`.
+`docs/09-fast-track.md` bo'yicha 9-kun: rahbar dashboardi (loyihalar progressi, kechikkan tasklar, mentor bo'yicha ochiq tasklar).

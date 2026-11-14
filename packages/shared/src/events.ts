@@ -12,6 +12,8 @@ export const EVENT_TYPES = [
   'task.status_changed',
   'task.due_soon',
   'task.overdue',
+  /** Ertalabki xulosa: bitta odam uchun (entityType 'user'). */
+  'user.digest',
   'task.commented',
   'task.mentioned',
   'message.posted',

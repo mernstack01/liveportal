@@ -1,6 +1,10 @@
 import { Injectable, Logger, OnApplicationBootstrap, OnApplicationShutdown } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Bot, type Context, InlineKeyboard } from 'grammy';
+import { renderDigest, renderTaskList } from '../notifications/task-list-message.js';
+import { toKeyboard } from '../notifications/telegram.gateway.js';
+import { localDay } from '../tasks/due.js';
+import { openTasksFor } from '../tasks/open-tasks.js';
 import type { User } from 'grammy/types';
 import { NOT_INVITED_MESSAGE } from '../auth/auth.service.js';
 import type { Env } from '../config/env.js';
@@ -49,6 +53,15 @@ export class BotService implements OnApplicationBootstrap, OnApplicationShutdown
         drop_pending_updates: false,
         onStart: (info) => {
           this.logger.log(`Bot ishga tushdi: @${info.username} (polling)`);
+          // Telegram'da "/" bosilganda chiqadigan menyu.
+          void bot.api
+            .setMyCommands([
+              { command: 'today', description: 'Bugungi va kechikkan tasklar' },
+              { command: 'mytasks', description: 'Mening barcha ochiq tasklarim' },
+              { command: 'start', description: 'Portal havolasi' },
+              { command: 'help', description: 'Yordam' },
+            ])
+            .catch((error: unknown) => this.logger.warn(`Bot menyusi o‘rnatilmadi: ${String(error)}`));
           const expected = this.config.get('TELEGRAM_BOT_USERNAME', { infer: true });
           if (expected && expected.toLowerCase() !== info.username.toLowerCase()) {
             this.logger.warn(`TELEGRAM_BOT_USERNAME=${expected}, lekin token @${info.username} botiga tegishli`);
@@ -89,8 +102,29 @@ export class BotService implements OnApplicationBootstrap, OnApplicationShutdown
     });
 
     privateChat.command('help', (ctx) =>
-      ctx.reply('Buyruqlar:\n/start — portal havolasi\n/help — yordam\n\nTez orada: /mytasks, /today'),
+      ctx.reply(
+        'Buyruqlar:\n/today — bugungi va kechikkan tasklar\n/mytasks — barcha ochiq tasklarim\n/start — portal havolasi\n/help — yordam\n\n' +
+          'Har kuni ertalab 9:00 da bugungi tasklar xulosasi keladi.',
+      ),
     );
+
+    privateChat.command(['mytasks', 'today'], async (ctx) => {
+      const user = await this.prisma.user.findUnique({ where: { telegramId: BigInt(ctx.from.id) }, select: { id: true } });
+      if (!user) {
+        await ctx.reply(NOT_INVITED_MESSAGE);
+        return;
+      }
+      const tasks = await openTasksFor(this.prisma, user.id);
+      const today = localDay(new Date());
+      const message =
+        ctx.message.text.startsWith('/today')
+          ? (renderDigest(tasks, today, this.webOrigin(), false) ?? {
+              text: `Bugun va ertaga muddati tugaydigan task yo‘q 🎉${tasks.length > 0 ? `\n\nBarcha ochiq tasklar (${tasks.length}): /mytasks` : ''}`,
+              buttons: [],
+            })
+          : renderTaskList(tasks, today, this.webOrigin());
+      await ctx.reply(message.text, { parse_mode: 'HTML', link_preview_options: { is_disabled: true }, reply_markup: toKeyboard(message.buttons) });
+    });
 
     // Bildirishnomadagi [Boshladim] / [Review'ga] tugmalari.
     bot.callbackQuery(/^ts:([A-Za-z0-9_-]{1,40}):(start|review)$/, async (ctx) => {

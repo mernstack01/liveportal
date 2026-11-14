@@ -350,3 +350,14 @@ model Notification {
   @@index([userId, readAt])
   @@index([status, nextAttemptAt])
 }
+
+/// Kuniga (yoki boshqa davrga) bir marta bajariladigan ishlar: ertalabki digest, overdue tekshiruvi.
+/// (job, period) qatori ishning o'zi bilan bitta tranzaksiyada yoziladi: bir nechta API nusxasida ham bir marta.
+model JobRun {
+  job       String // 'morning'
+  period    String // '2026-11-15' (Toshkent sanasi)
+  createdAt DateTime @default(now())
+  stats     Json     @default("{}")
+
+  @@id([job, period])
+}

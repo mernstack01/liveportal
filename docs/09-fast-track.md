@@ -41,6 +41,8 @@ liveportal/
 
 ## 3. Kunma-kun reja
 
+> *8-kun izohi:* alohida `due_soon` xabari qilinmadi: ertangi muddatlar ertalabki xulosada "🟡 Ertaga" bo'limida chiqadi (shovqin kamroq). `task.overdue` bajaruvchiga alohida bormaydi, faqat muallif va teamleadga.
+
 | Kun | Natija (ko'rinadigan) |
 |---|---|
 | 1 ✅ | Skelet, docker-compose, Prisma migration, seed (workspace, 4 rol, standart statuslar). `GET /health` |
@@ -50,7 +52,7 @@ liveportal/
 | 5 ✅ | Web: loyihalar ro'yxati, kanban board |
 | 6 ✅ | Web: task drawer (tafsilot, izohlar), "Mening tasklarim" |
 | 7 ✅ | Telegram bildirishnoma: tayinlandi, mention, izoh, Review'ga o'tdi. Tugmalar: `[Boshladim] [Review'ga] [Ochish]` |
-| 8 | Cron: `due_soon`, `overdue`, ertalabki digest (09:00 Toshkent). Bot: `/mytasks`, `/today` |
+| 8 ✅ | Cron: `due_soon`, `overdue`, ertalabki digest (09:00 Toshkent). Bot: `/mytasks`, `/today` |
 | 9 | Rahbar dashboardi: loyihalar progressi (status `category` bo'yicha), kechikkan tasklar, mentor bo'yicha ochiq tasklar |
 | 10 | VPS'ga deploy (docker compose + Caddy), pilot: 1 loyiha, 1 teamlead, 3–4 mentor |
 

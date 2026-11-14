@@ -101,6 +101,11 @@ export function renderMessage(input: MessageInput): RenderedMessage {
     case 'review':
       lines.push(`👀 Review’ga o‘tdi`, head, `👤 Bajaruvchi: ${escapeHtml(task.assigneeName ?? '—')}`, `📁 ${escapeHtml(task.projectName)}`);
       break;
+    case 'overdue':
+      lines.push(`⏰ Muddati o‘tdi`, head, `👤 Bajaruvchi: ${escapeHtml(task.assigneeName ?? '—')}`);
+      if (task.dueDate) lines.push(`📅 Muddat edi: ${day(task.dueDate)}`);
+      lines.push(`📁 ${escapeHtml(task.projectName)}`);
+      break;
   }
   return { text: lines.join('\n') + quote, buttons: taskButtons(input, task) };
 }

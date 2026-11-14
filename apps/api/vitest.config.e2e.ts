@@ -18,6 +18,7 @@ export default defineConfig({
       BOT_MODE: 'off',
       OUTBOX_POLL_MS: '0',
       NOTIFY_POLL_MS: '0',
+      SCHEDULER_POLL_MS: '0',
       DEV_LOGIN: 'false',
       TELEGRAM_BOT_TOKEN: '123456:E2E_TEST_TOKEN',
       TELEGRAM_BOT_USERNAME: 'liveportal_test_bot',

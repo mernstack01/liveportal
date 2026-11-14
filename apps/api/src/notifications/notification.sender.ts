@@ -2,8 +2,11 @@ import { Injectable, Logger, OnApplicationBootstrap, OnApplicationShutdown } fro
 import { ConfigService } from '@nestjs/config';
 import type { Env } from '../config/env.js';
 import { PrismaService } from '../db/prisma.service.js';
-import { renderMessage, type MessageInput } from './notification-message.js';
+import { localDay } from '../tasks/due.js';
+import { openTasksFor } from '../tasks/open-tasks.js';
+import { renderMessage, type MessageInput, type RenderedMessage } from './notification-message.js';
 import type { NotificationKind } from './notification-rules.js';
+import { renderDigest } from './task-list-message.js';
 import { TelegramGateway, TelegramPermanentError, TelegramRetryAfterError } from './telegram.gateway.js';
 
 const MAX_ATTEMPTS = 5;
@@ -92,12 +95,17 @@ export class NotificationSender implements OnApplicationBootstrap, OnApplication
     }
 
     try {
-      const input = await this.buildInput(n.kind as NotificationKind, n.userId, n.event);
-      if (!input) {
+      const message = await this.build(n.kind as NotificationKind, n.userId, n.event);
+      if (message === 'empty') {
+        // Ertalabki xulosa: odam tasklarini yopib ulgurgan, yuboradigan narsa yo'q.
+        await this.prisma.notification.update({ where: { id }, data: { status: 'skipped' } });
+        return false;
+      }
+      if (!message) {
         await this.finish(id, 'failed', 'Task yoki loyiha topilmadi');
         return false;
       }
-      await this.telegram.send(n.user.telegramId.toString(), renderMessage(input));
+      await this.telegram.send(n.user.telegramId.toString(), message);
       await this.prisma.notification.update({ where: { id }, data: { status: 'sent', sentAt: new Date(), lastError: null } });
       return true;
     } catch (error) {
@@ -121,6 +129,20 @@ export class NotificationSender implements OnApplicationBootstrap, OnApplication
   }
 
   /** Matn yuborish paytidagi ma'lumotdan quriladi: task nomi o'zgargan bo'lsa, yangisi ko'rinadi. */
+  private async build(
+    kind: NotificationKind,
+    recipientId: string,
+    event: { actorId: string | null; entityType: string; entityId: string; payload: unknown },
+  ): Promise<RenderedMessage | 'empty' | null> {
+    if (kind === 'digest') {
+      const tasks = await openTasksFor(this.prisma, recipientId);
+      const webOrigin = this.config.get('WEB_ORIGIN', { infer: true });
+      return renderDigest(tasks, localDay(new Date()), webOrigin, true) ?? 'empty';
+    }
+    const input = await this.buildInput(kind, recipientId, event);
+    return input ? renderMessage(input) : null;
+  }
+
   private async buildInput(
     kind: NotificationKind,
     recipientId: string,

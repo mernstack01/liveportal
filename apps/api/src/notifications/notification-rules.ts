@@ -2,7 +2,7 @@ import { Injectable, OnModuleInit } from '@nestjs/common';
 import { EventBus } from '../events/event-bus.js';
 import type { Event, Prisma } from '../generated/prisma/client.js';
 
-export type NotificationKind = 'assigned' | 'mentioned' | 'commented' | 'review' | 'added';
+export type NotificationKind = 'assigned' | 'mentioned' | 'commented' | 'review' | 'added' | 'overdue' | 'digest';
 
 /** Task eventlari payload'i (TasksService.taskEvent). */
 interface TaskPayload {
@@ -52,6 +52,19 @@ export class NotificationRules implements OnModuleInit {
       });
       return this.enqueue(tx, e, 'review', [p.reporterId, ...closers.map((c) => c.userId)]);
     });
+
+    // Kechikdi (ertalabki ish): muallif va teamleadlarga. Bajaruvchi buni ertalabki xulosadan biladi.
+    this.bus.subscribe('task.overdue', 'notify:overdue', async (e, tx) => {
+      const p = e.payload as unknown as TaskPayload;
+      const closers = await tx.projectMember.findMany({
+        where: { projectId: p.projectId, role: { permissions: { has: 'task.close' } } },
+        select: { userId: true },
+      });
+      const recipients = [p.reporterId, ...closers.map((c) => c.userId)].filter((id) => id !== p.assigneeId);
+      return this.enqueue(tx, e, 'overdue', recipients);
+    });
+
+    this.bus.subscribe('user.digest', 'notify:digest', (e, tx) => this.enqueue(tx, e, 'digest', [e.entityId]));
 
     this.bus.subscribe('project.member_added', 'notify:added', (e, tx) => {
       const p = e.payload as unknown as { userId: string };

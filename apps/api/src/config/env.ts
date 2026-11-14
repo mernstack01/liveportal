@@ -37,6 +37,10 @@ export const envFields = z
     OUTBOX_POLL_MS: z.coerce.number().int().min(0).default(2000),
     /** Telegram bildirishnomalari navbatini tekshirish oralig'i (ms). 0 — o'chiq. */
     NOTIFY_POLL_MS: z.coerce.number().int().min(0).default(1000),
+    /** Rejalashtiruvchi tekshiruvi (ms). 0 — o'chiq (e2e testlar ishni o'zi chaqiradi). */
+    SCHEDULER_POLL_MS: z.coerce.number().int().min(0).default(60_000),
+    /** Ertalabki xulosa soati, Toshkent vaqti bilan. */
+    DIGEST_HOUR: z.coerce.number().int().min(0).max(23).default(9),
 
     /** Faqat lokal: Telegram Login Widget localhost'da ishlamaydi. */
     DEV_LOGIN: z.stringbool().default(false),
