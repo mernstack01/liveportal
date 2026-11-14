@@ -1,6 +1,7 @@
 import { createBrowserRouter, RouterProvider } from 'react-router'
 import { useAuth } from './auth'
 import { AppLayout } from './components/AppLayout'
+import { DashboardPage } from './pages/DashboardPage'
 import { LoginPage } from './pages/LoginPage'
 import { MyTasksPage } from './pages/MyTasksPage'
 import { NotFoundPage } from './pages/NotFoundPage'
@@ -21,6 +22,7 @@ const router = createBrowserRouter([
         children: [{ path: 'tasks/:taskRef', element: <TaskDrawer /> }],
       },
       { path: '/my', element: <MyTasksPage /> },
+      { path: '/dashboard', element: <DashboardPage /> },
       { path: '/team', element: <TeamPage /> },
       { path: '*', element: <NotFoundPage /> },
     ],

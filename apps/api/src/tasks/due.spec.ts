@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { addDays, dueBucket, localDay, localHour } from './due.js';
+import { addDays, dueBucket, localDay, localHour, localMidnight, weekStart } from './due.js';
 
 describe('due', () => {
   it('Toshkent sanasi UTC’dan 5 soat oldin almashadi', () => {
@@ -24,5 +24,12 @@ describe('due', () => {
     expect(dueBucket(d('2026-11-22'), today)).toBe('week');
     expect(dueBucket(d('2026-11-23'), today)).toBe('later');
     expect(dueBucket(null, today)).toBe('none');
+  });
+
+  it('hafta boshi dushanba; Toshkent yarim tuni UTC 19:00', () => {
+    expect(weekStart('2026-11-15')).toBe('2026-11-09'); // yakshanba → dushanba
+    expect(weekStart('2026-11-16')).toBe('2026-11-16'); // dushanba
+    expect(weekStart('2026-11-18')).toBe('2026-11-16');
+    expect(localMidnight('2026-11-16').toISOString()).toBe('2026-11-15T19:00:00.000Z');
   });
 });

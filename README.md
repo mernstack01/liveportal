@@ -2,7 +2,7 @@
 
 > IT Live Academy uchun ichki boshqaruv portali — mentorlar AI bilan qiladigan loyihalarni, tasklarni, jamoalarni va kommunikatsiyani bitta joyda boshqarish.
 
-**Holat:** 🟢 MVP-0, 8-kun tayyor: Telegram orqali kirish, loyihalar va tasklar (API + web: kanban, task paneli, "Mening tasklarim"), Telegram bildirishnomalari tugmalar bilan, ertalabki xulosa va bot buyruqlari `/today`, `/mytasks`. Reja: [docs/09-fast-track.md](docs/09-fast-track.md)
+**Holat:** 🟢 MVP-0, 9-kun tayyor: rahbar dashboardi; Telegram orqali kirish, loyihalar va tasklar (API + web: kanban, task paneli, "Mening tasklarim"), Telegram bildirishnomalari tugmalar bilan, ertalabki xulosa va bot buyruqlari `/today`, `/mytasks`. Reja: [docs/09-fast-track.md](docs/09-fast-track.md)
 
 ## Muammo (qisqa)
 
@@ -87,6 +87,7 @@ E2e testlar alohida `liveportal_test` bazasida ishlaydi (avtomatik yaratiladi), 
 | `PATCH /projects/:projectId/tasks/:taskRef` | maydon bo'yicha: `task.update`, `task.assign`; Done'ga o'tkazish yoki qaytarish `task.close` |
 | `POST /projects/:projectId/tasks/:taskRef/comments` | `task.comment`; `@username` faqat loyiha a'zolari uchun ishlaydi |
 | `GET /tasks/mine` (`?all=true`) | barcha loyihalardagi menga berilgan ochiq tasklar |
+| `GET /dashboard` | `dashboard.view_all`: loyihalar progressi, kechikkan tasklar, odamlar yuklamasi, bu hafta yopilganlar |
 
 Loyihadagi ruxsat = workspace roli + loyiha roli. Arxivdagi loyihada task yaratib ham, izoh yozib ham bo'lmaydi (409).
 
@@ -108,4 +109,4 @@ Hech kimga o'zi qilgan ish haqida xabar kelmaydi. Ertalabki ish (`MorningJob`) k
 
 ## Keyingi qadam
 
-`docs/09-fast-track.md` bo'yicha 9-kun: rahbar dashboardi (loyihalar progressi, kechikkan tasklar, mentor bo'yicha ochiq tasklar).
+`docs/09-fast-track.md` bo'yicha 10-kun: VPS'ga deploy (docker compose + Caddy, HTTPS), bot webhook, pilot.

@@ -36,3 +36,17 @@ export function dueBucket(dueDate: Date | null, today: string): DueBucket {
   if (day <= addDays(today, 7)) return 'week';
   return 'later';
 }
+
+/** Toshkentda yozgi vaqt yo'q: doimiy UTC+5. Boshqa mintaqa kerak bo'lsa, shu yer umumlashtiriladi. */
+const TASHKENT_OFFSET = '+05:00';
+
+/** Mahalliy sana yarim tuni → aniq vaqt (masalan, "bu hafta" boshi). */
+export function localMidnight(day: string): Date {
+  return new Date(`${day}T00:00:00${TASHKENT_OFFSET}`);
+}
+
+/** Shu haftaning dushanbasi (mahalliy sana). */
+export function weekStart(today: string): string {
+  const weekday = new Date(`${today}T00:00:00.000Z`).getUTCDay(); // 0 = yakshanba
+  return addDays(today, -((weekday + 6) % 7));
+}

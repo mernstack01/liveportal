@@ -70,3 +70,47 @@ export interface Comment {
 export interface TaskDetail extends Task {
   comments: Comment[]
 }
+
+export interface DashboardPerson {
+  userId: string
+  name: string
+  avatarUrl: string | null
+}
+
+export interface Dashboard {
+  today: string
+  weekStart: string
+  summary: { activeProjects: number; openTasks: number; inReview: number; overdue: number; doneThisWeek: number; unassigned: number }
+  projects: {
+    id: string
+    key: string
+    name: string
+    status: ProjectStatus
+    dueDate: string | null
+    total: number
+    counts: Record<StatusCategory, number>
+    progress: number
+    overdue: number
+    late: boolean
+  }[]
+  overdue: {
+    id: string
+    key: string
+    number: number
+    title: string
+    project: { id: string; name: string }
+    assignee: DashboardPerson | null
+    dueDate: string
+    daysLate: number
+  }[]
+  people: (DashboardPerson & { role: string; open: number; inProgress: number; review: number; overdue: number; doneThisWeek: number })[]
+  doneThisWeek: {
+    id: string
+    key: string
+    number: number
+    title: string
+    project: { id: string; name: string }
+    assignee: DashboardPerson | null
+    completedAt: string
+  }[]
+}

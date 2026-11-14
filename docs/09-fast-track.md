@@ -53,7 +53,7 @@ liveportal/
 | 6 ✅ | Web: task drawer (tafsilot, izohlar), "Mening tasklarim" |
 | 7 ✅ | Telegram bildirishnoma: tayinlandi, mention, izoh, Review'ga o'tdi. Tugmalar: `[Boshladim] [Review'ga] [Ochish]` |
 | 8 ✅ | Cron: `due_soon`, `overdue`, ertalabki digest (09:00 Toshkent). Bot: `/mytasks`, `/today` |
-| 9 | Rahbar dashboardi: loyihalar progressi (status `category` bo'yicha), kechikkan tasklar, mentor bo'yicha ochiq tasklar |
+| 9 ✅ | Rahbar dashboardi: loyihalar progressi (status `category` bo'yicha), kechikkan tasklar, mentor bo'yicha ochiq tasklar |
 | 10 | VPS'ga deploy (docker compose + Caddy), pilot: 1 loyiha, 1 teamlead, 3–4 mentor |
 
 11–15-kunlar: pilotdan kelgan fikrlar bo'yicha tuzatishlar, keyin v1 (chat).

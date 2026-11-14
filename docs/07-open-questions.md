@@ -30,6 +30,7 @@
    > 1. Qaysi loyiha kechikyapti? (muddati o'tgan tasklar, progress foizi)
    > 2. Kim band, kim bo'sh? (mentor bo'yicha ochiq tasklar soni)
    > 3. Bu hafta nima yopildi? (`Done` ga o'tgan tasklar)
+   > **Kodda (9-kun):** `/dashboard` shu uch savolga javob beradi, qo'shimcha: Review kutayotgan va egasiz tasklar soni. Rahbar bilan pilotda tekshiriladi.
 
 ## Kommunikatsiya
 8. **Ichki xabarlar** — portalda alohida chat kerakmi yoki mavjud Telegram guruhlar bilan sinxronlash yetarlimi?

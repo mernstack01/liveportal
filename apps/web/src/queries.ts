@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { api } from './api'
-import type { Member, ProjectDetail, ProjectSummary, Task, TaskDetail } from './types'
+import type { Dashboard, Member, ProjectDetail, ProjectSummary, Task, TaskDetail } from './types'
 
 export const keys = {
   projects: (archived: boolean) => ['projects', { archived }] as const,
@@ -41,3 +41,6 @@ export const useTask = (projectId: string, ref: string) =>
 
 export const useMyTasks = (all: boolean) =>
   useQuery({ queryKey: keys.myTasks(all), queryFn: () => api<Task[]>(`/tasks/mine${all ? '?all=true' : ''}`), refetchInterval: 30_000 })
+
+export const useDashboard = () =>
+  useQuery({ queryKey: ['dashboard'], queryFn: () => api<Dashboard>('/dashboard'), refetchInterval: 60_000 })
