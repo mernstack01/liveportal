@@ -1,8 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { Event } from '../generated/prisma/client.js';
+import type { Event, Prisma } from '../generated/prisma/client.js';
 import { EventBus } from './event-bus.js';
 
 const event = (type: string) => ({ id: 'e1', type, entityType: 'task', entityId: 't1' }) as Event;
+const tx = {} as Prisma.TransactionClient;
 
 describe('EventBus', () => {
   it('turi mos obunachilarni va * obunachilarni chaqiradi', async () => {
@@ -14,7 +15,7 @@ describe('EventBus', () => {
     bus.subscribe('*', 'all', all);
     bus.subscribe('task.assigned', 'other', other);
 
-    await bus.dispatch(event('task.created'));
+    await bus.dispatch(event('task.created'), tx);
     expect(exact).toHaveBeenCalledOnce();
     expect(all).toHaveBeenCalledOnce();
     expect(other).not.toHaveBeenCalled();
@@ -28,7 +29,7 @@ describe('EventBus', () => {
     });
     bus.subscribe('*', 'sog', after);
 
-    await expect(bus.dispatch(event('task.created'))).resolves.toBe(1);
+    await expect(bus.dispatch(event('task.created'), tx)).resolves.toBe(1);
     expect(after).toHaveBeenCalledOnce();
   });
 });

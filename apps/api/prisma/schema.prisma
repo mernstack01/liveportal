@@ -328,16 +328,25 @@ model NotificationRule {
 }
 
 model Notification {
-  id        String    @id @default(cuid())
-  userId    String
-  eventId   String
-  channel   String // 'telegram' | 'in_app' | 'email' ...
-  status    String    @default("pending") // pending | sent | failed
-  readAt    DateTime?
-  createdAt DateTime  @default(now())
+  id            String    @id @default(cuid())
+  userId        String
+  eventId       String
+  channel       String // 'telegram' | 'in_app' | 'email' ...
+  kind          String // 'assigned' | 'mentioned' | 'commented' | 'review' | 'added' — matn shablonini tanlaydi
+  status        String    @default("pending") // pending | sent | failed
+  attempts      Int       @default(0)
+  // Navbat: shu vaqtdan keyin yuboriladi. Olingan qator 5 daqiqaga "band" qilinadi (process yiqilsa qaytadi).
+  nextAttemptAt DateTime  @default(now())
+  sentAt        DateTime?
+  lastError     String?
+  readAt        DateTime?
+  createdAt     DateTime  @default(now())
 
   user  User  @relation(fields: [userId], references: [id])
   event Event @relation(fields: [eventId], references: [id])
 
+  // Event qayta yetkazilsa ham bitta odamga bitta xabar.
+  @@unique([eventId, userId, channel])
   @@index([userId, readAt])
+  @@index([status, nextAttemptAt])
 }

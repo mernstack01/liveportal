@@ -14,11 +14,11 @@ IT Live Academy ichki portali: loyihalar, tasklar, Telegram bildirishnomalari. T
 
 ## Qoidalar
 1. Modul faqat o'z jadvallariga yozadi; boshqa modulga ta'sir — event yoki public service orqali.
-2. Biznes amal va `Event` qatori bitta Prisma tranzaksiyasida yoziladi (outbox).
+2. Biznes amal va `Event` qatori bitta Prisma tranzaksiyasida yoziladi (outbox). Eventga reaksiya — `EventBus.subscribe(type, nom, (event, tx) => ...)`; obunachi yozuvlari `tx` orqali (dispatcher tranzaksiyasi).
 3. Ruxsat nomlari `packages/shared/src/permissions.ts` da; rol → ruxsat xaritasi bazada. Kodda rol nomini tekshirmang, ruxsatni tekshiring.
 4. Modul shabloni: `docs/05-modules.md` (controller → service → repository, `events/`, `listeners/`, `dto/`).
 5. Har yangi endpoint uchun kamida bitta e2e test (`apps/api/test`).
-6. Sxema o'zgarsa: `pnpm db:migrate --name <nom>`; migration fayllarini qo'lda tahrirlamang.
+6. Sxema o'zgarsa: `pnpm db:migrate --name <nom>` (interaktiv). Agent (interaktivsiz): `mkdir prisma/migrations/<UTC vaqt>_<nom>` → `pnpm db:diff > .../migration.sql` → `pnpm db:deploy` → `prisma generate`. Migration fayllarini qo'lda tahrirlamang.
 7. Sir (bot token, parol) faqat `.env` da, hech qachon kodda yoki hujjatda.
 
 ## Tekshirish

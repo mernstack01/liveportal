@@ -57,6 +57,7 @@ describe('Loyihalar va a’zolar (e2e)', () => {
     const userIds = Object.values(users).map((u) => u.id);
     const projects = await prisma.project.findMany({ where: { workspaceId, key: { startsWith: key } }, select: { id: true } });
     const projectIds = projects.map((p) => p.id);
+    await prisma.notification.deleteMany({ where: { event: { entityId: { in: projectIds } } } });
     await prisma.event.deleteMany({ where: { entityId: { in: projectIds } } });
     await prisma.workflowStatus.deleteMany({ where: { projectId: { in: projectIds } } });
     await prisma.projectMember.deleteMany({ where: { projectId: { in: projectIds } } });

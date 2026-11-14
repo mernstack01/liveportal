@@ -7,6 +7,7 @@ import type { Env } from '../config/env.js';
 import { PrismaService } from '../db/prisma.service.js';
 import { extractInviteToken } from '../invites/invite-record.js';
 import { InviteError, InvitesService, type InviteErrorCode } from '../invites/invites.service.js';
+import { TaskActionError, TaskActionsService, type TaskAction } from '../tasks/task-actions.service.js';
 
 const INVITE_ERRORS: Record<InviteErrorCode, string> = {
   not_found: 'Taklif havolasi noto‘g‘ri. Uni sizga yuborgan odamdan qayta so‘rang.',
@@ -27,6 +28,7 @@ export class BotService implements OnApplicationBootstrap, OnApplicationShutdown
     private readonly config: ConfigService<Env, true>,
     private readonly prisma: PrismaService,
     private readonly invites: InvitesService,
+    private readonly taskActions: TaskActionsService,
   ) {}
 
   onApplicationBootstrap(): void {
@@ -89,6 +91,23 @@ export class BotService implements OnApplicationBootstrap, OnApplicationShutdown
     privateChat.command('help', (ctx) =>
       ctx.reply('Buyruqlar:\n/start — portal havolasi\n/help — yordam\n\nTez orada: /mytasks, /today'),
     );
+
+    // Bildirishnomadagi [Boshladim] / [Review'ga] tugmalari.
+    bot.callbackQuery(/^ts:([A-Za-z0-9_-]{1,40}):(start|review)$/, async (ctx) => {
+      const [, taskId, action] = ctx.match;
+      try {
+        const answer = await this.taskActions.apply(ctx.from.id, taskId, action as TaskAction);
+        await ctx.answerCallbackQuery({ text: answer });
+        // Ishlatilgan holat tugmalari olib tashlanadi, "Ochish" qoladi.
+        const rows = ctx.callbackQuery.message?.reply_markup?.inline_keyboard ?? [];
+        const kept = rows.map((row) => row.filter((b) => !('callback_data' in b))).filter((row) => row.length > 0);
+        await ctx.editMessageReplyMarkup({ reply_markup: { inline_keyboard: kept } }).catch(() => undefined);
+      } catch (error) {
+        if (!(error instanceof TaskActionError)) this.logger.error(`Tugma ${action} (${taskId}) xato berdi: ${String(error)}`);
+        const text = error instanceof TaskActionError ? error.message : 'Xatolik yuz berdi, portal orqali urinib ko‘ring.';
+        await ctx.answerCallbackQuery({ text, show_alert: true });
+      }
+    });
 
     // Havola yoki `inv_...` kodi oddiy xabar sifatida yuborilsa ham qabul qilinadi.
     privateChat.on('message:text', async (ctx) => {

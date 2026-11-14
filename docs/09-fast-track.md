@@ -34,7 +34,8 @@ liveportal/
 - **Web: Vite SPA** (Next.js emas). Bitta build ham oddiy brauzerda, ham Telegram Mini App ichida ochiladi. SSR va SEO kerak emas, xavfsizlik API'da.
 - **Auth faqat Telegram:** web'da Telegram Login Widget, Mini App ichida `initData`. Backend imzoni bot tokeni bilan tekshiradi va JWT beradi. Taklif havolasi: `t.me/<bot>?start=inv_<token>`.
 - **Outbox oddiy:** biznes amal va `Event` qatori bitta Prisma tranzaksiyasida yoziladi. Dispatcher har 2 soniyada `publishedAt IS NULL` qatorlarni `FOR UPDATE SKIP LOCKED` bilan olib, `EventBus` obunachilariga tarqatadi.
-  - *4-kunda o'zgardi:* dispatcher BullMQ'siz, PostgreSQL'ning o'zida ishlaydi. Kafolati bir xil (bir nechta API nusxasida ham har event bir marta olinadi), lekin Redis'ga bog'liqlik yo'q. BullMQ 7-kunda Telegram'ga yuborish uchun kiradi: u yerda qayta urinish va rate-limit kerak.
+  - *4-kunda o'zgardi:* dispatcher BullMQ'siz, PostgreSQL'ning o'zida ishlaydi. Kafolati bir xil (bir nechta API nusxasida ham har event bir marta olinadi), lekin Redis'ga bog'liqlik yo'q.
+  - *7-kunda o'zgardi:* Telegram'ga yuborish navbati ham PostgreSQL'da (`Notification`: `attempts`, `nextAttemptAt`, `lastError`). Bildirishnoma qatori event bilan bir tranzaksiyada yoziladi, shuning uchun yo'qolmaydi va takrorlanmaydi. Qayta urinish va 429 shu ustunlar bilan. Redis/BullMQ MVP'da umuman kerak bo'lmadi; yuklama oshsa qaytiladi.
 - **Kanban:** `@dnd-kit` + shadcn. Board'ni noldan yozmaslik.
   - *5-kunda:* `@dnd-kit/core` ishlatildi; shadcn o'rniga bir nechta oddiy Tailwind komponent (`apps/web/src/components/ui.tsx`). Komponentlar ko'payganda shadcn qo'shiladi.
 
@@ -48,7 +49,7 @@ liveportal/
 | 4 ✅ | Task API: yaratish, tayinlash, status, muddat, prioritet, izoh, @mention. `Event` + outbox |
 | 5 ✅ | Web: loyihalar ro'yxati, kanban board |
 | 6 ✅ | Web: task drawer (tafsilot, izohlar), "Mening tasklarim" |
-| 7 | Telegram bildirishnoma: tayinlandi, mention, izoh, Review'ga o'tdi. Tugmalar: `[Boshladim] [Review'ga] [Ochish]` |
+| 7 ✅ | Telegram bildirishnoma: tayinlandi, mention, izoh, Review'ga o'tdi. Tugmalar: `[Boshladim] [Review'ga] [Ochish]` |
 | 8 | Cron: `due_soon`, `overdue`, ertalabki digest (09:00 Toshkent). Bot: `/mytasks`, `/today` |
 | 9 | Rahbar dashboardi: loyihalar progressi (status `category` bo'yicha), kechikkan tasklar, mentor bo'yicha ochiq tasklar |
 | 10 | VPS'ga deploy (docker compose + Caddy), pilot: 1 loyiha, 1 teamlead, 3–4 mentor |

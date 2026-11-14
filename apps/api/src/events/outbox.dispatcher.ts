@@ -69,7 +69,7 @@ export class OutboxDispatcher implements OnApplicationBootstrap, OnApplicationSh
         const ids = locked.map((r) => r.id);
         const events = await tx.event.findMany({ where: { id: { in: ids } }, orderBy: [{ createdAt: 'asc' }, { id: 'asc' }] });
         for (const event of events) {
-          const failed = await this.bus.dispatch(event);
+          const failed = await this.bus.dispatch(event, tx);
           this.logger.debug(`${event.type} ${event.entityType}:${event.entityId}${failed ? ` (${failed} obunachi xato)` : ''}`);
         }
         await tx.event.updateMany({ where: { id: { in: ids } }, data: { publishedAt: new Date() } });

@@ -35,6 +35,8 @@ export const envFields = z
 
     /** Outbox eventlarini tekshirish oralig'i (ms). 0 — o'chiq (e2e testlar drain() ni o'zi chaqiradi). */
     OUTBOX_POLL_MS: z.coerce.number().int().min(0).default(2000),
+    /** Telegram bildirishnomalari navbatini tekshirish oralig'i (ms). 0 — o'chiq. */
+    NOTIFY_POLL_MS: z.coerce.number().int().min(0).default(1000),
 
     /** Faqat lokal: Telegram Login Widget localhost'da ishlamaydi. */
     DEV_LOGIN: z.stringbool().default(false),

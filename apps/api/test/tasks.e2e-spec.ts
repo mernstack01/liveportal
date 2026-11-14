@@ -63,6 +63,8 @@ describe('Tasklar, izohlar va outbox (e2e)', () => {
   afterAll(async () => {
     const userIds = Object.values(users).map((u) => u.id);
     const taskIds = (await prisma.task.findMany({ where: { projectId }, select: { id: true } })).map((t) => t.id);
+    // Eventlarga bildirishnomalar bog'langan (NotificationRules): avval ular.
+    await prisma.notification.deleteMany({ where: { event: { entityId: { in: [projectId, ...taskIds] } } } });
     await prisma.event.deleteMany({ where: { entityId: { in: [projectId, ...taskIds] } } });
     await prisma.comment.deleteMany({ where: { taskId: { in: taskIds } } });
     await prisma.task.deleteMany({ where: { projectId } });
