@@ -32,6 +32,8 @@ export interface MessageInput {
   commentBody?: string;
   project?: { id: string; name: string };
   role?: string;
+  /** Chat xabari (kind 'chat_mention'). */
+  chatBody?: string;
 }
 
 /** Zaxira: odatda sender rolning bazadagi nomini (title) beradi. */
@@ -77,6 +79,13 @@ export function renderMessage(input: MessageInput): RenderedMessage {
   const task = input.task;
   const head = task ? `<b>${escapeHtml(task.key)}</b> · ${escapeHtml(task.title)}` : '';
   const quote = input.commentBody ? `\n\n<blockquote>${escapeHtml(excerpt(input.commentBody))}</blockquote>` : '';
+
+  if (input.kind === 'chat_mention' && input.project) {
+    return {
+      text: `💬 ${actor} sizni <b>${escapeHtml(input.project.name)}</b> chatida belgiladi\n\n<blockquote>${escapeHtml(excerpt(input.chatBody ?? ''))}</blockquote>`,
+      buttons: [openButton(input.webOrigin, `/projects/${input.project.id}/chat`)].filter((r) => r.length > 0),
+    };
+  }
 
   if (input.kind === 'added' && input.project) {
     const role = input.role ? `\nRolingiz: ${ROLE_LABELS[input.role] ?? escapeHtml(input.role)}` : '';

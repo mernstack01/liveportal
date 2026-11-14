@@ -17,9 +17,9 @@ Brauzerda http://localhost:5173 → "Lokal kirish" maydoniga Telegram ID.
 | Kim | Telegram ID | Rol | Nimani ko'rsatish qulay |
 |---|---|---|---|
 | Aziz Rahimov | `900000101` | Admin, loyihalarda teamlead | Hammasi: board, Done qilish, a'zolar, dashboard |
-| Malika Yusupova | `900000102` | Mentor | Mentor Done qila olmasligi |
-| Jasur Toshev | `900000103` | Mentor | "Mening tasklarim": kechikkan va bugungi tasklar |
-| Nodira Aliyeva | `900000104` | Mentor | Eng band odam (dashboard'da) |
+| Malika Yusupova | `900000102` | Dasturchi | Dasturchi Done qila olmasligi |
+| Jasur Toshev | `900000103` | Dasturchi | "Mening tasklarim": kechikkan va bugungi tasklar |
+| Nodira Aliyeva | `900000104` | Dasturchi | Eng band odam (dashboard'da) |
 
 Loyihalar: **ITL** IT Live sayti, **CRM** Mentor CRM (muddati o'tgan), **TBK** Telegram bot kursi.
 
@@ -45,10 +45,12 @@ begin;
 create temp table d_u as select id from "User" where id like 'demo\_%';
 create temp table d_p as select id from "Project" where key in ('ITL','CRM','TBK') and id in (select "projectId" from "ProjectMember" where "userId" in (select id from d_u));
 create temp table d_t as select id from "Task" where "projectId" in (select id from d_p);
-create temp table d_e as select id from "Event" where "entityId" in (select id from d_p union select id from d_t union select id from d_u);
+create temp table d_e as select id from "Event" where "entityId" in (select id from d_p union select id from d_t union select id from d_u union select m.id from "Message" m join "Channel" c on c.id = m."channelId" where c."projectId" in (select id from d_p));
 delete from "Notification" where "eventId" in (select id from d_e) or "userId" in (select id from d_u);
 delete from "Event" where id in (select id from d_e);
 delete from "Comment" where "taskId" in (select id from d_t);
+delete from "Message" where "channelId" in (select id from "Channel" where "projectId" in (select id from d_p));
+delete from "Channel" where "projectId" in (select id from d_p);
 delete from "Task" where id in (select id from d_t);
 delete from "WorkflowStatus" where "projectId" in (select id from d_p);
 delete from "ProjectMember" where "projectId" in (select id from d_p);

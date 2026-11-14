@@ -155,6 +155,15 @@ export class NotificationSender implements OnApplicationBootstrap, OnApplication
     const actor = event.actorId ? await this.prisma.user.findUnique({ where: { id: event.actorId }, select: { name: true } }) : null;
     const payload = (event.payload ?? {}) as { commentId?: string; userId?: string; role?: string };
 
+    if (event.entityType === 'message') {
+      const message = await this.prisma.message.findUnique({
+        where: { id: event.entityId },
+        select: { body: true, channel: { select: { project: { select: { id: true, name: true } } } } },
+      });
+      const project = message?.channel.project;
+      return message && project ? { kind, recipientId, actorName: actor?.name ?? null, webOrigin, project, chatBody: message.body } : null;
+    }
+
     if (event.entityType === 'project') {
       const project = await this.prisma.project.findUnique({ where: { id: event.entityId }, select: { id: true, name: true } });
       if (!project) return null;

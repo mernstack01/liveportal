@@ -2,7 +2,7 @@ import { Injectable, OnModuleInit } from '@nestjs/common';
 import { EventBus } from '../events/event-bus.js';
 import type { Event, Prisma } from '../generated/prisma/client.js';
 
-export type NotificationKind = 'assigned' | 'mentioned' | 'commented' | 'review' | 'added' | 'overdue' | 'digest';
+export type NotificationKind = 'assigned' | 'mentioned' | 'commented' | 'review' | 'added' | 'overdue' | 'digest' | 'chat_mention';
 
 /** Task eventlari payload'i (TasksService.taskEvent). */
 interface TaskPayload {
@@ -61,6 +61,12 @@ export class NotificationRules implements OnModuleInit {
         select: { userId: true },
       });
       return this.enqueue(tx, e, 'overdue', [p.assigneeId, p.reporterId, ...closers.map((c) => c.userId)]);
+    });
+
+    // Chatda @mention: belgilanganga (ular chatni ko'ra oladiganlar orasidan tanlangan).
+    this.bus.subscribe('message.posted', 'notify:chat-mention', (e, tx) => {
+      const p = e.payload as unknown as { mentions?: string[] };
+      return this.enqueue(tx, e, 'chat_mention', p.mentions ?? []);
     });
 
     this.bus.subscribe('user.digest', 'notify:digest', (e, tx) => this.enqueue(tx, e, 'digest', [e.entityId]));

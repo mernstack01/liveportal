@@ -1,8 +1,9 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
-import { Link, Outlet, useParams } from 'react-router'
+import { Link, NavLink, Outlet, useParams } from 'react-router'
 import { api, ApiError } from '../api'
 import { Board } from '../board/Board'
+import { ChatPanel } from '../chat/ChatPanel'
 import { MembersDialog } from '../components/MembersDialog'
 import { Avatar, Badge, ErrorText, Spinner } from '../components/ui'
 import { formatDay, PROJECT_STATUS_LABELS, PROJECT_STATUS_STYLES } from '../labels'
@@ -50,7 +51,7 @@ function StatusControl({ project }: { project: ProjectDetail }) {
   )
 }
 
-export function ProjectPage() {
+export function ProjectPage({ tab = 'board' }: { tab?: 'board' | 'chat' }) {
   const { projectId = '' } = useParams()
   const { me } = useMe()
   const project = useProject(projectId)
@@ -103,7 +104,30 @@ export function ProjectPage() {
         </button>
       </div>
 
-      <Board project={p} userId={me.id} />
+      {p.myPermissions.includes('message.internal.read') && (
+        <nav className="mx-auto flex max-w-7xl gap-1 px-4" aria-label="Loyiha bo‘limlari">
+          {[
+            { to: `/projects/${p.id}`, label: 'Board', active: tab === 'board' },
+            { to: `/projects/${p.id}/chat`, label: 'Chat', active: tab === 'chat' },
+          ].map((t) => (
+            <NavLink
+              key={t.label}
+              to={t.to}
+              end
+              className={`rounded-md px-3 py-1.5 text-sm font-medium ${t.active ? 'bg-white text-slate-900 shadow-sm ring-1 ring-slate-200' : 'text-slate-500 hover:text-slate-900'}`}
+            >
+              {t.label}
+            </NavLink>
+          ))}
+        </nav>
+      )}
+      {tab === 'chat' && p.myPermissions.includes('message.internal.read') ? (
+        <div className="px-4">
+          <ChatPanel project={p} userId={me.id} />
+        </div>
+      ) : (
+        <Board project={p} userId={me.id} />
+      )}
       {membersOpen && <MembersDialog project={p} userId={me.id} onClose={() => setMembersOpen(false)} />}
       <Outlet />
     </main>

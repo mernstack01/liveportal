@@ -133,3 +133,16 @@ export interface RolesResponse {
   permissions: { key: string; label: string; group: string; allowed: boolean }[]
   roles: RoleInfo[]
 }
+
+export interface ChatMessage {
+  id: string
+  body: string
+  createdAt: string
+  author: (Person & { telegramUsername: string | null }) | null
+}
+
+export interface ChatPage {
+  canWrite: boolean
+  hasMore: boolean
+  messages: ChatMessage[]
+}

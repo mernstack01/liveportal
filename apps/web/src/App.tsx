@@ -22,6 +22,7 @@ const router = createBrowserRouter([
         // Telegram'dagi "Ochish" tugmasi shu manzilga olib keladi (7-kun).
         children: [{ path: 'tasks/:taskRef', element: <TaskDrawer /> }],
       },
+      { path: '/projects/:projectId/chat', element: <ProjectPage tab="chat" /> },
       { path: '/my', element: <MyTasksPage /> },
       { path: '/dashboard', element: <DashboardPage /> },
       { path: '/team', element: <TeamPage /> },
