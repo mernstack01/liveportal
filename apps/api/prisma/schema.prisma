@@ -286,6 +286,7 @@ model Message {
   source         MessageSource @default(PORTAL)
   replyToId      String?
   createdAt      DateTime      @default(now())
+  editedAt       DateTime? // muallif tahrirlagan bo'lsa
 
   channel     Channel      @relation(fields: [channelId], references: [id])
   author      User?        @relation(fields: [authorId], references: [id])

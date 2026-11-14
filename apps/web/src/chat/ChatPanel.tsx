@@ -6,7 +6,13 @@ import { todayStr } from '../labels'
 import { MentionText } from '../task/MentionText'
 import type { ChatAttachment, ChatMessage, ChatPage, ProjectDetail } from '../types'
 
-const chatKey = (projectId: string) => ['chat', projectId] as const
+/** internal — "Jamoa" (faqat xodimlar), client — "Mijoz bilan". */
+export type ChatKind = 'internal' | 'client'
+const chatKey = (projectId: string, kind: ChatKind) => ['chat', projectId, kind] as const
+const KIND = {
+  internal: { path: 'chat', title: 'Jamoa chati', note: '🔒 Faqat xodimlar ko‘radi — mijoz ko‘rmaydi' },
+  client: { path: 'client-chat', title: 'Mijoz bilan', note: '👥 Mijoz ham ko‘radi — ichki gaplarni “Jamoa” chatida yozing' },
+} as const
 const MAX_FILES = 10
 const MAX_MB = 20
 
@@ -81,13 +87,17 @@ interface Pending {
  * Loyihaning ichki chati: faqat xodimlar (mehmon/mijoz ko'rmaydi). Har 4 soniyada yangilanadi.
  * O'zingizning xabarlaringiz — o'ngda, boshqalarniki — chapda. Fayl: 📎, Ctrl/⌘+V bilan rasm, yoki sudrab tashlash.
  */
-export function ChatPanel({ project, userId }: { project: ProjectDetail; userId: string }) {
+export function ChatPanel({ project, userId, kind = 'internal' }: { project: ProjectDetail; userId: string; kind?: ChatKind }) {
   const queryClient = useQueryClient()
+  const base = `/projects/${project.id}/${KIND[kind].path}`
+  const key = chatKey(project.id, kind)
   const latest = useQuery({
-    queryKey: chatKey(project.id),
-    queryFn: () => api<ChatPage>(`/projects/${project.id}/chat`),
+    queryKey: key,
+    queryFn: () => api<ChatPage>(base),
     refetchInterval: 4000,
   })
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editText, setEditText] = useState('')
   const [older, setOlder] = useState<ChatMessage[]>([])
   const [olderHasMore, setOlderHasMore] = useState<boolean | null>(null)
   const [body, setBody] = useState('')
@@ -143,7 +153,7 @@ export function ChatPanel({ project, userId }: { project: ProjectDetail; userId:
     })
 
   const loadOlder = useMutation({
-    mutationFn: () => api<ChatPage>(`/projects/${project.id}/chat?before=${messages[0]?.id ?? ''}`),
+    mutationFn: () => api<ChatPage>(`${base}?before=${messages[0]?.id ?? ''}`),
     onSuccess: (page) => {
       setOlder((o) => [...page.messages, ...o])
       setOlderHasMore(page.hasMore)
@@ -155,15 +165,29 @@ export function ChatPanel({ project, userId }: { project: ProjectDetail; userId:
       const form = new FormData()
       form.append('body', body)
       pending.forEach((p) => form.append('files', p.file, p.file.name))
-      return api<ChatMessage>(`/projects/${project.id}/chat`, { method: 'POST', body: form })
+      return api<ChatMessage>(base, { method: 'POST', body: form })
     },
     onSuccess: (message) => {
       setBody('')
       dropPending('all')
       setNotice(null)
-      queryClient.setQueryData<ChatPage>(chatKey(project.id), (page) => (page ? { ...page, messages: [...page.messages, message] } : page))
+      queryClient.setQueryData<ChatPage>(key, (page) => (page ? { ...page, messages: [...page.messages, message] } : page))
     },
   })
+
+  const edit = useMutation({
+    mutationFn: ({ id, text }: { id: string; text: string }) => api<ChatMessage>(`${base}/${id}`, { method: 'PATCH', body: JSON.stringify({ body: text }) }),
+    onSuccess: (message) => {
+      setEditingId(null)
+      const swap = (list: ChatMessage[]) => list.map((m) => (m.id === message.id ? message : m))
+      queryClient.setQueryData<ChatPage>(key, (page) => (page ? { ...page, messages: swap(page.messages) } : page))
+      setOlder(swap)
+    },
+  })
+  const startEdit = (m: ChatMessage) => {
+    setEditingId(m.id)
+    setEditText(m.body)
+  }
 
   // Mehmonlar ichki chatni ko'rmaydi, shuning uchun ularni belgilab bo'lmaydi.
   const mentionable = project.members.filter((m) => m.role !== 'guest' && m.telegramUsername && m.userId !== userId)
@@ -209,8 +233,8 @@ export function ChatPanel({ project, userId }: { project: ProjectDetail; userId:
         </div>
       )}
       <header className="flex items-center justify-between gap-3 border-b border-slate-100 px-4 py-2.5">
-        <h2 className="text-sm font-semibold">Jamoa chati</h2>
-        <span className="text-xs text-slate-500">🔒 Faqat xodimlar ko‘radi — mehmon va mijozlar ko‘rmaydi</span>
+        <h2 className="text-sm font-semibold">{KIND[kind].title}</h2>
+        <span className="text-xs text-slate-500">{KIND[kind].note}</span>
       </header>
 
       <div ref={scroller} className="flex-1 overflow-y-auto bg-slate-50/60 px-4 py-3">
@@ -240,16 +264,67 @@ export function ChatPanel({ project, userId }: { project: ProjectDetail; userId:
               )}
               <div className={`flex items-end gap-2 ${mine ? 'justify-end' : 'justify-start'} ${grouped ? 'mt-0.5' : 'mt-3'}`}>
                 {!mine && (grouped ? <span className="w-9 shrink-0" /> : m.author ? <Avatar person={m.author} /> : <span className="size-9 shrink-0" />)}
-                <div className={`flex max-w-[78%] flex-col ${mine ? 'items-end' : 'items-start'}`}>
+                <div className={`group flex max-w-[78%] flex-col ${mine ? 'items-end' : 'items-start'}`}>
                   {!mine && !grouped && <p className="mb-0.5 px-1 text-xs font-semibold text-slate-700">{m.author?.name ?? 'O‘chirilgan foydalanuvchi'}</p>}
-                  <div
-                    className={`space-y-1.5 px-3 py-2 shadow-sm ${
-                      mine ? 'rounded-2xl rounded-br-md bg-[#2a78d6] text-white' : 'rounded-2xl rounded-bl-md bg-white text-slate-900 ring-1 ring-slate-200'
-                    }`}
-                  >
-                    {m.attachments.length > 0 && <Attachments items={m.attachments} mine={mine} onMediaLoad={keepBottom} />}
-                    {m.body && <MentionText text={m.body} usernames={usernames} onDark={mine} />}
-                    <p className={`text-right text-[11px] leading-none ${mine ? 'text-white/70' : 'text-slate-400'}`}>{time(m.createdAt)}</p>
+                  <div className="flex items-center gap-1">
+                    {/* O'z xabarini tahrirlash: sichqoncha ustida yoki klaviatura fokusida ko'rinadi */}
+                    {mine && canWrite && editingId !== m.id && (
+                      <button
+                        type="button"
+                        onClick={() => startEdit(m)}
+                        aria-label="Xabarni tahrirlash"
+                        className="rounded px-1.5 py-1 text-xs text-slate-400 opacity-0 hover:bg-slate-200 hover:text-slate-700 focus:opacity-100 group-hover:opacity-100"
+                      >
+                        ✏️ Tahrirlash
+                      </button>
+                    )}
+                    <div
+                      className={`space-y-1.5 px-3 py-2 shadow-sm ${
+                        mine ? 'rounded-2xl rounded-br-md bg-[#2a78d6] text-white' : 'rounded-2xl rounded-bl-md bg-white text-slate-900 ring-1 ring-slate-200'
+                      }`}
+                    >
+                      {m.attachments.length > 0 && <Attachments items={m.attachments} mine={mine} onMediaLoad={keepBottom} />}
+                      {editingId === m.id ? (
+                        <form
+                          onSubmit={(e) => {
+                            e.preventDefault()
+                            edit.mutate({ id: m.id, text: editText })
+                          }}
+                          className="space-y-1.5"
+                        >
+                          <textarea
+                            autoFocus
+                            rows={Math.min(6, editText.split('\n').length + 1)}
+                            maxLength={4000}
+                            value={editText}
+                            onChange={(e) => setEditText(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' && !e.shiftKey) {
+                                e.preventDefault()
+                                edit.mutate({ id: m.id, text: editText })
+                              }
+                              if (e.key === 'Escape') setEditingId(null)
+                            }}
+                            className="w-72 max-w-full resize-y rounded-md bg-white/95 px-2 py-1.5 text-sm text-slate-900 outline-none"
+                          />
+                          <div className="flex justify-end gap-1.5 text-xs">
+                            <button type="button" onClick={() => setEditingId(null)} className="rounded px-2 py-1 text-white/80 hover:bg-white/15">
+                              Bekor (Esc)
+                            </button>
+                            <button disabled={edit.isPending} className="rounded bg-white px-2 py-1 font-medium text-[#2a78d6] disabled:opacity-60">
+                              Saqlash
+                            </button>
+                          </div>
+                          {edit.error && <p className="text-xs text-amber-100">{edit.error.message}</p>}
+                        </form>
+                      ) : (
+                        m.body && <MentionText text={m.body} usernames={usernames} onDark={mine} />
+                      )}
+                      <p className={`text-right text-[11px] leading-none ${mine ? 'text-white/70' : 'text-slate-400'}`}>
+                        {m.editedAt && 'tahrirlangan · '}
+                        {time(m.createdAt)}
+                      </p>
+                    </div>
                   </div>
                 </div>
               </div>

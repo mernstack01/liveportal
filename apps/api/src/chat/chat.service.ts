@@ -1,5 +1,6 @@
 import { open, rm } from 'node:fs/promises';
-import { BadRequestException, ConflictException, Injectable } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import type { Permission } from '@liveportal/shared';
 import { z } from 'zod';
 import type { ProjectContext } from '../auth/auth.types.js';
 import { parse } from '../common/zod.js';
@@ -28,9 +29,17 @@ async function head(path: string): Promise<Buffer> {
 const PAGE = 50;
 
 /**
- * Loyihaning ichki chati: faqat `message.internal.read` ruxsati borlar (rahbar, admin, teamlead, dasturchi).
- * Mehmon (mijoz) ko'rmaydi. Kanal birinchi murojaatda yaratiladi.
+ * Loyihada ikki chat:
+ * - `internal` — "Jamoa": faqat xodimlar (message.internal.*), mijoz ko'rmaydi;
+ * - `client` — "Mijoz bilan": mijoz va unga javob beradigan xodimlar (message.external.*).
  */
+export type ChatKind = 'internal' | 'client';
+export const CHAT_KINDS: Record<ChatKind, { type: 'INTERNAL' | 'EXTERNAL'; name: string; read: Permission; write: Permission }> = {
+  internal: { type: 'INTERNAL', name: 'Jamoa', read: 'message.internal.read', write: 'message.internal.write' },
+  client: { type: 'EXTERNAL', name: 'Mijoz bilan', read: 'message.external.read', write: 'message.external.write' },
+};
+
+/** Kanal birinchi murojaatda yaratiladi. */
 @Injectable()
 export class ChatService {
   constructor(
@@ -43,6 +52,7 @@ export class ChatService {
       id: m.id,
       body: m.body,
       createdAt: m.createdAt,
+      editedAt: m.editedAt,
       author: m.author ? { userId: m.author.id, name: m.author.name, avatarUrl: m.author.avatarUrl, telegramUsername: m.author.telegramUsername } : null,
       attachments: m.attachments.map((a) => ({
         id: a.id,
@@ -55,14 +65,15 @@ export class ChatService {
     };
   }
 
-  private async channel(project: ProjectContext) {
-    const existing = await this.prisma.channel.findFirst({ where: { projectId: project.id, type: 'INTERNAL' } });
-    return existing ?? this.prisma.channel.create({ data: { workspaceId: project.workspaceId, projectId: project.id, type: 'INTERNAL', name: 'Jamoa' } });
+  private async channel(project: ProjectContext, kind: ChatKind) {
+    const { type, name } = CHAT_KINDS[kind];
+    const existing = await this.prisma.channel.findFirst({ where: { projectId: project.id, type } });
+    return existing ?? this.prisma.channel.create({ data: { workspaceId: project.workspaceId, projectId: project.id, type, name } });
   }
 
   /** Oxirgi xabarlar (eskisi tepada). `before` — shu xabardan oldingilar (yuqoriga yuklash). */
-  async list(project: ProjectContext, before?: string) {
-    const channel = await this.channel(project);
+  async list(project: ProjectContext, kind: ChatKind, before?: string) {
+    const channel = await this.channel(project, kind);
     const cursor = before ? await this.prisma.message.findFirst({ where: { id: before, channelId: channel.id }, select: { createdAt: true } }) : null;
     const rows = await this.prisma.message.findMany({
       where: { channelId: channel.id, ...(cursor ? { createdAt: { lt: cursor.createdAt } } : {}) },
@@ -72,20 +83,20 @@ export class ChatService {
     });
     const page = rows.slice(0, PAGE).reverse();
     return {
-      canWrite: project.permissions.includes('message.internal.write'),
+      canWrite: project.permissions.includes(CHAT_KINDS[kind].write),
       hasMore: rows.length > PAGE,
       messages: page.map((m) => this.toMessage(m)),
     };
   }
 
   /** Matn va/yoki fayllar. Xato bo'lsa, diskka tushgan fayllar o'chiriladi. */
-  async post(project: ProjectContext, authorId: string, input: unknown, files: Express.Multer.File[]) {
+  async post(project: ProjectContext, kind: ChatKind, authorId: string, input: unknown, files: Express.Multer.File[]) {
     try {
       const { body } = parse(z.object({ body: z.string().trim().max(4000).default('') }), input ?? {});
       if (!body && files.length === 0) throw new BadRequestException('Xabar yoki fayl kerak');
       const state = await this.prisma.project.findUniqueOrThrow({ where: { id: project.id }, select: { status: true } });
       if (state.status === 'ARCHIVED') throw new ConflictException('Loyiha arxivda');
-      const channel = await this.channel(project);
+      const channel = await this.channel(project, kind);
 
       const attachments = await Promise.all(
         files.map(async (f) => {
@@ -112,7 +123,7 @@ export class ChatService {
               where: {
                 projectId: project.id,
                 user: { telegramUsername: { not: null } },
-                role: { permissions: { has: 'message.internal.read' } },
+                role: { permissions: { has: CHAT_KINDS[kind].read } },
               },
               select: { userId: true, user: { select: { telegramUsername: true } } },
             });
@@ -129,7 +140,7 @@ export class ChatService {
           actorId: authorId,
           entityType: 'message',
           entityId: created.id,
-          payload: { projectId: project.id, channelId: channel.id, mentions, attachments: attachments.length },
+          payload: { projectId: project.id, channelId: channel.id, kind, mentions, attachments: attachments.length },
         });
         return created;
       });
@@ -138,5 +149,22 @@ export class ChatService {
       await Promise.all(files.map((f) => rm(f.path, { force: true })));
       throw error;
     }
+  }
+
+  /** Faqat muallif o'z xabarini tahrirlaydi. Fayllar qoladi; fayli bor xabar matnsiz bo'lishi mumkin. */
+  async edit(project: ProjectContext, kind: ChatKind, userId: string, messageId: string, input: unknown) {
+    const { body } = parse(z.object({ body: z.string().trim().max(4000) }), input);
+    const channel = await this.channel(project, kind);
+    const message = await this.prisma.message.findFirst({
+      where: { id: messageId, channelId: channel.id },
+      select: { authorId: true, _count: { select: { attachments: true } } },
+    });
+    if (!message) throw new NotFoundException('Xabar topilmadi');
+    if (message.authorId !== userId) throw new ForbiddenException('Faqat o‘z xabaringizni tahrirlay olasiz');
+    if (!body && message._count.attachments === 0) throw new BadRequestException('Xabar bo‘sh bo‘lmasligi kerak');
+    const state = await this.prisma.project.findUniqueOrThrow({ where: { id: project.id }, select: { status: true } });
+    if (state.status === 'ARCHIVED') throw new ConflictException('Loyiha arxivda');
+    const saved = await this.prisma.message.update({ where: { id: messageId }, data: { body, editedAt: new Date() }, include: messageInclude });
+    return this.toMessage(saved);
   }
 }

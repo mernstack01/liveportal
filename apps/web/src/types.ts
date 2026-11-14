@@ -148,6 +148,7 @@ export interface ChatMessage {
   id: string
   body: string
   createdAt: string
+  editedAt: string | null
   author: (Person & { telegramUsername: string | null }) | null
   attachments: ChatAttachment[]
 }

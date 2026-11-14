@@ -111,6 +111,20 @@ describe('Ichki chat (e2e)', () => {
     expect(older.body.hasMore).toBe(false);
   });
 
+  it('o‘z xabarini tahrirlaydi; boshqaniki va bo‘sh matn — yo‘q', async () => {
+    const posted = await http().post(chat()).set(as('dev')).send({ body: 'Xato yozdim' }).expect(201);
+    const id = posted.body.id;
+    expect(posted.body.editedAt).toBeNull();
+    const edited = await http().patch(`${chat()}/${id}`).set(as('dev')).send({ body: 'To‘g‘ri yozdim' }).expect(200);
+    expect(edited.body).toMatchObject({ body: 'To‘g‘ri yozdim' });
+    expect(edited.body.editedAt).not.toBeNull();
+
+    await http().patch(`${chat()}/${id}`).set(as('lead')).send({ body: 'Teamlead o‘zgartirdi' }).expect(403);
+    await http().patch(`${chat()}/${id}`).set(as('guest')).send({ body: 'Mehmon' }).expect(403);
+    await http().patch(`${chat()}/${id}`).set(as('dev')).send({ body: '  ' }).expect(400);
+    await http().patch(`${chat()}/yoq-xabar`).set(as('dev')).send({ body: 'x' }).expect(404);
+  });
+
   it('arxivdagi loyihada yozib bo‘lmaydi', async () => {
     await http().patch(`/api/v1/projects/${projectId}`).set(as('lead')).send({ status: 'ARCHIVED' }).expect(200);
     await http().post(chat()).set(as('dev')).send({ body: 'kech qoldim' }).expect(409);

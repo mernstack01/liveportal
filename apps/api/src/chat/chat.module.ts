@@ -6,7 +6,7 @@ import { ConfigService } from '@nestjs/config';
 import { MulterModule } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import type { Env } from '../config/env.js';
-import { ChatController } from './chat.controller.js';
+import { ChatController, ClientChatController } from './chat.controller.js';
 import { ChatService } from './chat.service.js';
 
 export const MAX_FILES = 10;
@@ -28,7 +28,7 @@ export const MAX_FILES = 10;
       },
     }),
   ],
-  controllers: [ChatController],
+  controllers: [ChatController, ClientChatController],
   providers: [ChatService],
 })
 export class ChatModule {}
