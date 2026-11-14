@@ -41,6 +41,8 @@ liveportal/
 
 ## 3. Kunma-kun reja
 
+> *10-kun izohi:* deploy fayllari tayyor va lokal tekshirilgan (`deploy/`), server va domen kutilmoqda. Bot production'da ham polling rejimida (bitta server uchun ishonchli, webhook keyin). Redis production'da yo'q.
+>
 > *8-kun izohi:* alohida `due_soon` xabari qilinmadi: ertangi muddatlar ertalabki xulosada "🟡 Ertaga" bo'limida chiqadi (shovqin kamroq). `task.overdue` bajaruvchiga alohida bormaydi, faqat muallif va teamleadga.
 
 | Kun | Natija (ko'rinadigan) |
@@ -54,7 +56,7 @@ liveportal/
 | 7 ✅ | Telegram bildirishnoma: tayinlandi, mention, izoh, Review'ga o'tdi. Tugmalar: `[Boshladim] [Review'ga] [Ochish]` |
 | 8 ✅ | Cron: `due_soon`, `overdue`, ertalabki digest (09:00 Toshkent). Bot: `/mytasks`, `/today` |
 | 9 ✅ | Rahbar dashboardi: loyihalar progressi (status `category` bo'yicha), kechikkan tasklar, mentor bo'yicha ochiq tasklar |
-| 10 | VPS'ga deploy (docker compose + Caddy), pilot: 1 loyiha, 1 teamlead, 3–4 mentor |
+| 10 🟡 | VPS'ga deploy (docker compose + Caddy), pilot: 1 loyiha, 1 teamlead, 3–4 mentor |
 
 11–15-kunlar: pilotdan kelgan fikrlar bo'yicha tuzatishlar, keyin v1 (chat).
 

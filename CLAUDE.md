@@ -11,6 +11,7 @@ IT Live Academy ichki portali: loyihalar, tasklar, Telegram bildirishnomalari. T
 - `apps/api` — NestJS 12, ESM (`.js` bilan import), Prisma 7 + `@prisma/adapter-pg`. Client `src/generated/prisma` ga generatsiya qilinadi (git'da yo'q).
 - `apps/web` — Vite + React 19 + Tailwind 4 + TanStack Query + react-router 8 + @dnd-kit. API chaqiruvlari faqat `src/api.ts` orqali, query kalitlari `src/queries.ts` da, o'zbekcha yorliqlar `src/labels.ts` da. UI ruxsatga qarab ko'rinadi (`useMe().can`, `project.myPermissions`), lekin haqiqiy tekshiruv API'da.
 - `packages/shared` — rollar, ruxsatlar, workflow, event nomlari. O'zgartirgandan keyin `pnpm --filter @liveportal/shared build`.
+- `deploy/` — production: `compose.prod.yml` (postgres, api, caddy), Dockerfile'lar, `Caddyfile`, `backup.sh`, qo'llanma `deploy/README.md`. Yangi env o'zgaruvchi qo'shilsa, `deploy/.env.example` ga ham.
 
 ## Qoidalar
 1. Modul faqat o'z jadvallariga yozadi; boshqa modulga ta'sir — event yoki public service orqali.

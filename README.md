@@ -2,7 +2,7 @@
 
 > IT Live Academy uchun ichki boshqaruv portali — mentorlar AI bilan qiladigan loyihalarni, tasklarni, jamoalarni va kommunikatsiyani bitta joyda boshqarish.
 
-**Holat:** 🟢 MVP-0, 9-kun tayyor: rahbar dashboardi; Telegram orqali kirish, loyihalar va tasklar (API + web: kanban, task paneli, "Mening tasklarim"), Telegram bildirishnomalari tugmalar bilan, ertalabki xulosa va bot buyruqlari `/today`, `/mytasks`. Reja: [docs/09-fast-track.md](docs/09-fast-track.md)
+**Holat:** 🟢 MVP-0, 9-kun tayyor, deploy fayllari tayyor (server kutilmoqda): rahbar dashboardi; Telegram orqali kirish, loyihalar va tasklar (API + web: kanban, task paneli, "Mening tasklarim"), Telegram bildirishnomalari tugmalar bilan, ertalabki xulosa va bot buyruqlari `/today`, `/mytasks`. Reja: [docs/09-fast-track.md](docs/09-fast-track.md)
 
 ## Muammo (qisqa)
 
@@ -109,4 +109,4 @@ Hech kimga o'zi qilgan ish haqida xabar kelmaydi. Ertalabki ish (`MorningJob`) k
 
 ## Keyingi qadam
 
-`docs/09-fast-track.md` bo'yicha 10-kun: VPS'ga deploy (docker compose + Caddy, HTTPS), bot webhook, pilot.
+10-kun: serverga deploy — qadamma-qadam [deploy/README.md](deploy/README.md) da (docker compose + Caddy, HTTPS, zaxira). Keyin pilot: 1 loyiha, 1 teamlead, 3–4 mentor.

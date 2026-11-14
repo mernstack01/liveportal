@@ -47,6 +47,7 @@
 ## Texnik
 11. Hosting qayerda? (VPS, Vercel + Railway, akademiya serveri?)
     > **Taklif:** bitta VPS (2 vCPU / 4 GB) + docker compose + Caddy (avtomatik HTTPS). Akademiyaning serveri bo'lsa, o'sha.
+    > **Kodda:** `deploy/` tayyor (shu taklif bo'yicha). ✍️ Qaysi server va domen — siz aytasiz.
 
 12. Mavjud tizimlar bilan integratsiya kerakmi? (CRM, LMS, Google Sheets, GitHub org)
     > **Taklif:** MVP'da yo'q. Birinchi integratsiya GitHub (PR ↔ task), v1+.

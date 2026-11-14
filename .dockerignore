@@ -1,0 +1,13 @@
+**/node_modules
+**/dist
+**/.env
+**/.env.*
+!**/.env.example
+apps/api/src/generated
+.git
+coverage
+**/*.log
+.DS_Store
+deploy/backups
+# Lokal TypeScript keshi: image ichida "allaqachon yig'ilgan" deb main.js chiqmay qolardi.
+**/*.tsbuildinfo

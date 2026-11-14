@@ -1,0 +1,26 @@
+# DOMAIN: masalan portal.itlive.uz — Caddy Let's Encrypt sertifikatini o'zi oladi va yangilaydi.
+# Lokal sinov: DOMAIN=localhost (Caddy'ning ichki sertifikati).
+{$DOMAIN} {
+	encode zstd gzip
+
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		-Server
+		# X-Frame-Options qo'yilmaydi: Telegram Mini App web.telegram.org ichida iframe'da ochiladi.
+	}
+
+	handle /api/* {
+		reverse_proxy api:4100
+	}
+
+	handle {
+		root * /srv
+		@assets path /assets/*
+		header @assets Cache-Control "public, max-age=31536000, immutable"
+		# SPA: /projects/... kabi manzillar index.html ga tushadi (router o'zi ochadi).
+		try_files {path} /index.html
+		file_server
+	}
+}

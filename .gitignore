@@ -10,3 +10,6 @@ coverage/
 .DS_Store
 *.tsbuildinfo
 apps/api/src/generated/
+
+# Server zaxiralari (deploy/backup.sh)
+deploy/backups/
