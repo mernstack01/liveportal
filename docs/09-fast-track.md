@@ -33,7 +33,8 @@ liveportal/
 - **Skelet ZenStaff (`~/Desktop/Projects/zenstaff`) dan olinadi**: pnpm workspace, NestJS 12 ESM, Vitest, oxlint, docker-compose. Taxminan yarim kun tejaydi.
 - **Web: Vite SPA** (Next.js emas). Bitta build ham oddiy brauzerda, ham Telegram Mini App ichida ochiladi. SSR va SEO kerak emas, xavfsizlik API'da.
 - **Auth faqat Telegram:** web'da Telegram Login Widget, Mini App ichida `initData`. Backend imzoni bot tokeni bilan tekshiradi va JWT beradi. Taklif havolasi: `t.me/<bot>?start=inv_<token>`.
-- **Outbox oddiy:** biznes amal va `Event` qatori bitta Prisma tranzaksiyasida yoziladi. BullMQ'dagi takrorlanuvchi job har 2 soniyada `publishedAt IS NULL` qatorlarni olib, subscriberlarga tarqatadi.
+- **Outbox oddiy:** biznes amal va `Event` qatori bitta Prisma tranzaksiyasida yoziladi. Dispatcher har 2 soniyada `publishedAt IS NULL` qatorlarni `FOR UPDATE SKIP LOCKED` bilan olib, `EventBus` obunachilariga tarqatadi.
+  - *4-kunda o'zgardi:* dispatcher BullMQ'siz, PostgreSQL'ning o'zida ishlaydi. Kafolati bir xil (bir nechta API nusxasida ham har event bir marta olinadi), lekin Redis'ga bog'liqlik yo'q. BullMQ 7-kunda Telegram'ga yuborish uchun kiradi: u yerda qayta urinish va rate-limit kerak.
 - **Kanban:** `@dnd-kit` + shadcn. Board'ni noldan yozmaslik.
 
 ## 3. Kunma-kun reja
@@ -43,7 +44,7 @@ liveportal/
 | 1 ✅ | Skelet, docker-compose, Prisma migration, seed (workspace, 4 rol, standart statuslar). `GET /health` |
 | 2 ✅ | Telegram auth (Login Widget + Mini App), JWT, bot `/start` va taklif havolasi orqali akkaunt bog'lash |
 | 3 ✅ | Project va a'zolar API, permission guard (`@RequirePermission`) |
-| 4 | Task API: yaratish, tayinlash, status, muddat, prioritet, izoh, @mention. `Event` + outbox |
+| 4 ✅ | Task API: yaratish, tayinlash, status, muddat, prioritet, izoh, @mention. `Event` + outbox |
 | 5 | Web: loyihalar ro'yxati, kanban board |
 | 6 | Web: task drawer (tafsilot, izohlar), "Mening tasklarim" |
 | 7 | Telegram bildirishnoma: tayinlandi, mention, izoh, Review'ga o'tdi. Tugmalar: `[Boshladim] [Review'ga] [Ochish]` |

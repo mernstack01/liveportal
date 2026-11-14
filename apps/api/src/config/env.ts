@@ -33,6 +33,9 @@ export const envFields = z
     /** Telegram ma'lumotlari qancha vaqt yaroqli (soniya). */
     TELEGRAM_AUTH_MAX_AGE_SEC: z.coerce.number().int().positive().default(86_400),
 
+    /** Outbox eventlarini tekshirish oralig'i (ms). 0 — o'chiq (e2e testlar drain() ni o'zi chaqiradi). */
+    OUTBOX_POLL_MS: z.coerce.number().int().min(0).default(2000),
+
     /** Faqat lokal: Telegram Login Widget localhost'da ishlamaydi. */
     DEV_LOGIN: z.stringbool().default(false),
   });

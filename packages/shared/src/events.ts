@@ -7,6 +7,7 @@ export const EVENT_TYPES = [
   'project.updated',
   'project.status_changed',
   'task.created',
+  'task.updated',
   'task.assigned',
   'task.status_changed',
   'task.due_soon',

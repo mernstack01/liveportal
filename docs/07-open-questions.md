@@ -16,9 +16,11 @@
 4. **Task oqimi:** task kim tomonidan yopiladi — bajaruvchi o'zimi yoki teamlead review qilgandan keyinmi?
    > **Taklif:** bajaruvchi taskni `Review` ga o'tkazadi, `Done` ga faqat teamlead (yoki task bergan odam) o'tkazadi. Bu `task.close` ruxsati bilan boshqariladi, keyin loyiha bo'yicha o'zgartirish mumkin.
    > Standart statuslar: `Backlog → To do → In progress → Review → Done`.
+   > **Kodda (4-kun):** shunday qilindi. Done (yoki Canceled) ga o'tkazish va undan qaytarish `task.close` talab qiladi; mentorda bu ruxsat yo'q. Boshqacha kerak bo'lsa, faqat rol ruxsatlari o'zgaradi.
 
 5. **O'zaro tasklar:** mentor boshqa loyihadagi mentorga task bera oladimi?
    > **Taklif:** ha, workspace ichidagi istalgan odamga. Agar u loyiha a'zosi bo'lmasa, avtomatik `Member` sifatida qo'shiladi va teamleadga xabar boradi.
+   > **Kodda (4-kun), vaqtincha qattiqroq:** task faqat loyiha a'zosiga beriladi, aks holda 400 "Avval uni loyihaga qo'shing". Avtomatik qo'shish tasdiqlangandan keyin qo'shiladi.
 
 6. **"AI bilan loyiha"** — AI ishlatilishini (qaysi tool, qancha token/xarajat, qaysi task AI bilan qilingan) kuzatish kerakmi?
    > **Taklif:** MVP'da yo'q. Taskda ixtiyoriy `customFields.aiTool` maydoni. Token va xarajat kuzatuvi v2 (`ai` moduli).

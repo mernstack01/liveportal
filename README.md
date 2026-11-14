@@ -2,7 +2,7 @@
 
 > IT Live Academy uchun ichki boshqaruv portali — mentorlar AI bilan qiladigan loyihalarni, tasklarni, jamoalarni va kommunikatsiyani bitta joyda boshqarish.
 
-**Holat:** 🟢 MVP-0, 3-kun tayyor: Telegram orqali kirish, taklif havolalari, bot, loyihalar va a'zolar API (loyiha darajasidagi ruxsatlar bilan). Reja: [docs/09-fast-track.md](docs/09-fast-track.md)
+**Holat:** 🟢 MVP-0, 4-kun tayyor: Telegram orqali kirish, taklif havolalari, bot, loyihalar va a'zolar API, task API (izoh, @mention), outbox dispatcher. Reja: [docs/09-fast-track.md](docs/09-fast-track.md)
 
 ## Muammo (qisqa)
 
@@ -81,9 +81,17 @@ E2e testlar alohida `liveportal_test` bazasida ishlaydi (avtomatik yaratiladi), 
 | `POST /projects/:projectId/members` | `project.member.manage`; o'zidan yuqori rol berib bo'lmaydi |
 | `PATCH`/`DELETE /projects/:projectId/members/:userId` | `project.member.manage`; o'zini o'zgartirib bo'lmaydi |
 | `GET /workspace/members` | workspace a'zosi |
+| `GET /projects/:projectId/tasks` (`?assignee=me`, `?statusId=`) | loyihani ko'ra oladigan odam |
+| `POST /projects/:projectId/tasks` | `task.create`; bajaruvchi berilsa `task.assign` ham. Bajaruvchi faqat loyiha a'zosi |
+| `GET /projects/:projectId/tasks/:taskRef` | task id yoki raqami (`LP-12` uchun `12`), izohlar bilan |
+| `PATCH /projects/:projectId/tasks/:taskRef` | maydon bo'yicha: `task.update`, `task.assign`; Done'ga o'tkazish yoki qaytarish `task.close` |
+| `POST /projects/:projectId/tasks/:taskRef/comments` | `task.comment`; `@username` faqat loyiha a'zolari uchun ishlaydi |
+| `GET /tasks/mine` (`?all=true`) | barcha loyihalardagi menga berilgan ochiq tasklar |
 
-Loyihadagi ruxsat = workspace roli + loyiha roli. Har o'zgarish `Event` jadvaliga bitta tranzaksiyada yoziladi (outbox).
+Loyihadagi ruxsat = workspace roli + loyiha roli. Arxivdagi loyihada task yaratib ham, izoh yozib ham bo'lmaydi (409).
+
+**Eventlar (outbox):** har o'zgarish `Event` jadvaliga o'sha tranzaksiyada yoziladi. `OutboxDispatcher` har `OUTBOX_POLL_MS` (2 soniya) da `publishedAt IS NULL` eventlarni `FOR UPDATE SKIP LOCKED` bilan olib, `EventBus` obunachilariga tarqatadi. Modul eventga shunday obuna bo'ladi: `eventBus.subscribe('task.assigned', 'nom', handler)`.
 
 ## Keyingi qadam
 
-`docs/09-fast-track.md` bo'yicha 4-kun: Task API (yaratish, tayinlash, status, muddat, izoh) va outbox dispatcher.
+`docs/09-fast-track.md` bo'yicha 5-kun: web'da loyihalar ro'yxati va kanban board.
