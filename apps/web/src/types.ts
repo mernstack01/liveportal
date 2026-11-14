@@ -58,3 +58,15 @@ export interface Task {
   createdAt: string
   updatedAt: string
 }
+
+export interface Comment {
+  id: string
+  author: Person | null
+  body: string
+  mentions: string[]
+  createdAt: string
+}
+
+export interface TaskDetail extends Task {
+  comments: Comment[]
+}

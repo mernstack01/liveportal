@@ -47,7 +47,7 @@ liveportal/
 | 3 ✅ | Project va a'zolar API, permission guard (`@RequirePermission`) |
 | 4 ✅ | Task API: yaratish, tayinlash, status, muddat, prioritet, izoh, @mention. `Event` + outbox |
 | 5 ✅ | Web: loyihalar ro'yxati, kanban board |
-| 6 | Web: task drawer (tafsilot, izohlar), "Mening tasklarim" |
+| 6 ✅ | Web: task drawer (tafsilot, izohlar), "Mening tasklarim" |
 | 7 | Telegram bildirishnoma: tayinlandi, mention, izoh, Review'ga o'tdi. Tugmalar: `[Boshladim] [Review'ga] [Ochish]` |
 | 8 | Cron: `due_soon`, `overdue`, ertalabki digest (09:00 Toshkent). Bot: `/mytasks`, `/today` |
 | 9 | Rahbar dashboardi: loyihalar progressi (status `category` bo'yicha), kechikkan tasklar, mentor bo'yicha ochiq tasklar |

@@ -13,6 +13,7 @@ import {
 } from '@dnd-kit/core'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
+import { useNavigate } from 'react-router'
 import { api } from '../api'
 import { Avatar, Badge, ErrorText } from '../components/ui'
 import { formatDay, humanError, isOverdue, PRIORITY_LABELS, PRIORITY_STYLES } from '../labels'
@@ -49,14 +50,23 @@ function TaskCard({ task, overlay = false }: { task: Task; overlay?: boolean }) 
 }
 
 function DraggableCard({ task, disabled }: { task: Task; disabled: boolean }) {
+  const navigate = useNavigate()
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: task.id, disabled })
+  const open = () => void navigate(`tasks/${task.number}`)
   return (
     <li
       ref={setNodeRef}
       {...listeners}
       {...attributes}
+      // Sudrash 5px siljigandan keyin boshlanadi, shuning uchun oddiy bosish taskni ochadi.
+      onClick={open}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') open()
+        else listeners?.onKeyDown?.(e)
+      }}
+      aria-label={`${task.key}: ${task.title}`}
       aria-roledescription="sudraladigan task"
-      className={`touch-manipulation rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-slate-500 ${disabled ? '' : 'cursor-grab active:cursor-grabbing'} ${isDragging ? 'opacity-30' : ''}`}
+      className={`touch-manipulation rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-slate-500 ${disabled ? 'cursor-pointer' : 'cursor-grab active:cursor-grabbing'} ${isDragging ? 'opacity-30' : ''}`}
     >
       <TaskCard task={task} />
     </li>
@@ -165,7 +175,8 @@ export function Board({ project, userId }: { project: ProjectDetail; userId: str
   const sensors = useSensors(
     useSensor(MouseSensor, { activationConstraint: { distance: 5 } }),
     useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 5 } }),
-    useSensor(KeyboardSensor),
+    // Klaviatura: Space — sudrash, Enter — ochish.
+    useSensor(KeyboardSensor, { keyboardCodes: { start: ['Space'], cancel: ['Escape'], end: ['Space'] } }),
   )
 
   useEffect(() => {

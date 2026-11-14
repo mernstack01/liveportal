@@ -50,9 +50,46 @@ export function formatDay(iso: string | null): string {
   return `${d}.${m}.${y}`
 }
 
+/** Bugungi sana `YYYY-MM-DD` ko'rinishida, foydalanuvchining mahalliy vaqti bo'yicha (Toshkent). */
+export function todayStr(now = new Date()): string {
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`
+}
+
+function addDays(day: string, days: number): string {
+  const d = new Date(`${day}T00:00:00`)
+  d.setDate(d.getDate() + days)
+  return todayStr(d)
+}
+
 export function isOverdue(iso: string | null): boolean {
   if (!iso) return false
-  return iso.slice(0, 10) < new Date().toISOString().slice(0, 10)
+  return iso.slice(0, 10) < todayStr()
+}
+
+export type DueGroup = 'overdue' | 'today' | 'week' | 'later' | 'none'
+export const DUE_GROUP_LABELS: Record<DueGroup, string> = {
+  overdue: 'Muddati o‘tgan',
+  today: 'Bugun',
+  week: 'Yaqin 7 kun',
+  later: 'Keyinroq',
+  none: 'Muddatsiz',
+}
+
+export function dueGroup(iso: string | null, today = todayStr()): DueGroup {
+  if (!iso) return 'none'
+  const day = iso.slice(0, 10)
+  if (day < today) return 'overdue'
+  if (day === today) return 'today'
+  if (day <= addDays(today, 7)) return 'week'
+  return 'later'
+}
+
+/** `14.11.2026 18:05` — brauzer locale'iga bog'liq bo'lmagan format. */
+export function formatDateTime(iso: string): string {
+  const d = new Date(iso)
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${pad(d.getDate())}.${pad(d.getMonth() + 1)}.${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`
 }
 
 /** API xabarini odam tiliga o'giradi (ruxsat nomlari o'rniga tushuntirish). */

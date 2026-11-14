@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
-import { Link, useParams } from 'react-router'
+import { Link, Outlet, useParams } from 'react-router'
 import { api, ApiError } from '../api'
 import { Board } from '../board/Board'
 import { MembersDialog } from '../components/MembersDialog'
@@ -105,6 +105,7 @@ export function ProjectPage() {
 
       <Board project={p} userId={me.id} />
       {membersOpen && <MembersDialog project={p} userId={me.id} onClose={() => setMembersOpen(false)} />}
+      <Outlet />
     </main>
   )
 }

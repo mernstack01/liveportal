@@ -23,12 +23,16 @@ export function AppLayout() {
     <div className="min-h-screen bg-slate-50 text-slate-900">
       <header className="sticky top-0 z-20 border-b border-slate-200 bg-white/90 backdrop-blur">
         <div className="mx-auto flex max-w-7xl items-center gap-2 px-4 py-2.5 sm:gap-4">
-          <NavLink to="/" className="font-semibold tracking-tight">
+          <NavLink to="/" className="hidden font-semibold tracking-tight sm:inline">
             LivePortal
           </NavLink>
           <nav className="flex items-center gap-1">
             <NavLink to="/" className={() => navClass({ isActive: pathname === '/' || pathname.startsWith('/projects/') })}>
               Loyihalar
+            </NavLink>
+            <NavLink to="/my" className={navClass}>
+              <span className="sm:hidden">Tasklarim</span>
+              <span className="hidden sm:inline">Mening tasklarim</span>
             </NavLink>
             <NavLink to="/team" className={navClass}>
               Jamoa

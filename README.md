@@ -2,7 +2,7 @@
 
 > IT Live Academy uchun ichki boshqaruv portali — mentorlar AI bilan qiladigan loyihalarni, tasklarni, jamoalarni va kommunikatsiyani bitta joyda boshqarish.
 
-**Holat:** 🟢 MVP-0, 5-kun tayyor: Telegram orqali kirish, bot, loyihalar va tasklar API, outbox; web'da loyihalar ro'yxati, kanban board (sudrab o'tkazish), a'zolar va jamoa sahifasi. Reja: [docs/09-fast-track.md](docs/09-fast-track.md)
+**Holat:** 🟢 MVP-0, 6-kun tayyor: Telegram orqali kirish, bot, loyihalar va tasklar API, outbox; web'da loyihalar, kanban board, task paneli (tahrirlash, izohlar, @mention), "Mening tasklarim", jamoa sahifasi. Reja: [docs/09-fast-track.md](docs/09-fast-track.md)
 
 ## Muammo (qisqa)
 
@@ -94,4 +94,4 @@ Loyihadagi ruxsat = workspace roli + loyiha roli. Arxivdagi loyihada task yarati
 
 ## Keyingi qadam
 
-`docs/09-fast-track.md` bo'yicha 6-kun: task drawer (tafsilot, tahrirlash, izohlar) va "Mening tasklarim" sahifasi.
+`docs/09-fast-track.md` bo'yicha 7-kun: Telegram bildirishnomalari (tayinlandi, mention, izoh, Review'ga o'tdi) va xabardagi tugmalar.

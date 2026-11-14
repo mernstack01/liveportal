@@ -1,11 +1,13 @@
 import { useQuery } from '@tanstack/react-query'
 import { api } from './api'
-import type { Member, ProjectDetail, ProjectSummary, Task } from './types'
+import type { Member, ProjectDetail, ProjectSummary, Task, TaskDetail } from './types'
 
 export const keys = {
   projects: (archived: boolean) => ['projects', { archived }] as const,
   project: (id: string) => ['project', id] as const,
   tasks: (projectId: string) => ['tasks', projectId] as const,
+  task: (projectId: string, ref: string) => ['task', projectId, ref] as const,
+  myTasks: (all: boolean) => ['my-tasks', { all }] as const,
   workspaceMembers: ['workspace-members'] as const,
 }
 
@@ -28,3 +30,14 @@ export const useTasks = (projectId: string) =>
 
 export const useWorkspaceMembers = () =>
   useQuery({ queryKey: keys.workspaceMembers, queryFn: () => api<Member[]>('/workspace/members') })
+
+/** `ref` — task raqami (URL'da `/tasks/12`) yoki id. */
+export const useTask = (projectId: string, ref: string) =>
+  useQuery({
+    queryKey: keys.task(projectId, ref),
+    queryFn: () => api<TaskDetail>(`/projects/${projectId}/tasks/${ref}`),
+    refetchInterval: 15_000,
+  })
+
+export const useMyTasks = (all: boolean) =>
+  useQuery({ queryKey: keys.myTasks(all), queryFn: () => api<Task[]>(`/tasks/mine${all ? '?all=true' : ''}`), refetchInterval: 30_000 })
