@@ -1,13 +1,35 @@
 import { z } from 'zod';
 
-export const envSchema = z.object({
-  NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
-  PORT: z.coerce.number().int().positive().default(4100),
-  DATABASE_URL: z.url({ protocol: /^postgres(ql)?$/ }),
-  REDIS_URL: z.url({ protocol: /^rediss?$/ }).optional(),
-  WEB_ORIGIN: z.url().default('http://localhost:5173'),
-  TELEGRAM_BOT_TOKEN: z.string().min(1).optional(),
-});
+/** `.env` dagi bo'sh qiymat (`KEY=`) berilmagan deb hisoblanadi. */
+const blankToUndefined = (value: unknown) => (value === '' ? undefined : value);
+
+export const envSchema = z
+  .object({
+    NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
+    PORT: z.coerce.number().int().positive().default(4100),
+    DATABASE_URL: z.url({ protocol: /^postgres(ql)?$/ }),
+    REDIS_URL: z.preprocess(blankToUndefined, z.url({ protocol: /^rediss?$/ }).optional()),
+    WEB_ORIGIN: z.url().default('http://localhost:5173'),
+
+    JWT_SECRET: z.string().min(32, 'JWT_SECRET kamida 32 belgi bo‘lishi kerak'),
+    JWT_ACCESS_TTL_SEC: z.coerce.number().int().positive().default(900),
+    REFRESH_TTL_DAYS: z.coerce.number().int().positive().default(30),
+
+    TELEGRAM_BOT_TOKEN: z.preprocess(blankToUndefined, z.string().min(1).optional()),
+    /** Taklif havolasi uchun: t.me/<username>?start=inv_... (@ belgisisiz). */
+    TELEGRAM_BOT_USERNAME: z.preprocess(blankToUndefined, z.string().regex(/^[A-Za-z0-9_]{5,64}$/).optional()),
+    /** off — bot ishga tushmaydi (testlar), polling — lokal, webhook — production (keyin). */
+    BOT_MODE: z.enum(['off', 'polling']).default('off'),
+    /** Telegram ma'lumotlari qancha vaqt yaroqli (soniya). */
+    TELEGRAM_AUTH_MAX_AGE_SEC: z.coerce.number().int().positive().default(86_400),
+
+    /** Faqat lokal: Telegram Login Widget localhost'da ishlamaydi. */
+    DEV_LOGIN: z.stringbool().default(false),
+  })
+  .refine((env) => !(env.DEV_LOGIN && env.NODE_ENV === 'production'), {
+    message: 'DEV_LOGIN production’da yoqilishi mumkin emas',
+    path: ['DEV_LOGIN'],
+  });
 
 export type Env = z.infer<typeof envSchema>;
 

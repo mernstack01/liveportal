@@ -6,5 +6,15 @@ export default defineConfig({
     globals: true,
     root: './',
     include: ['**/*.e2e-spec.ts'],
+    // Lokal PostgreSQL bitta: fayllar ketma-ket ishlaydi.
+    fileParallelism: false,
+    // process.env .env faylidan ustun turadi.
+    env: {
+      NODE_ENV: 'test',
+      BOT_MODE: 'off',
+      DEV_LOGIN: 'false',
+      TELEGRAM_BOT_TOKEN: '123456:E2E_TEST_TOKEN',
+      TELEGRAM_BOT_USERNAME: 'liveportal_test_bot',
+    },
   },
 });

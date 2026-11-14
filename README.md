@@ -2,7 +2,7 @@
 
 > IT Live Academy uchun ichki boshqaruv portali — mentorlar AI bilan qiladigan loyihalarni, tasklarni, jamoalarni va kommunikatsiyani bitta joyda boshqarish.
 
-**Holat:** 🟢 MVP-0, 1-kun tayyor: monorepo, baza (migration + seed), `GET /api/v1/health`, web qobig'i. Reja: [docs/09-fast-track.md](docs/09-fast-track.md)
+**Holat:** 🟢 MVP-0, 2-kun tayyor: Telegram orqali kirish (Login Widget, Mini App), taklif havolalari, bot `/start`. Reja: [docs/09-fast-track.md](docs/09-fast-track.md)
 
 ## Muammo (qisqa)
 
@@ -57,8 +57,18 @@ pnpm dev             # api :4100, web :5173
 | Web (Vite + React) | `apps/web` | http://localhost:5173 (`/api` API'ga proxy qilinadi) |
 | Umumiy kod | `packages/shared` | rollar, ruxsatlar, standart workflow, event nomlari |
 
+## Birinchi kirish (Telegram)
+
+1. @BotFather → `/newbot`. Token va username'ni `apps/api/.env` ga yozing: `TELEGRAM_BOT_TOKEN`, `TELEGRAM_BOT_USERNAME`. Tokenni hech kimga yubormang.
+2. `pnpm dev` ni qayta ishga tushiring. Logda `Bot ishga tushdi: @...` chiqishi kerak.
+3. Birinchi rahbar uchun havola: `pnpm --filter @liveportal/api invite:create owner "Ism"`. Havolani oching, bot sizni workspace'ga qo'shadi.
+4. Lokal web'ga kirish: `DEV_LOGIN=true` bo'lsa login sahifasida Telegram ID bilan kirasiz (Telegram Login Widget localhost'da ishlamaydi).
+5. Production'da: @BotFather → `/setdomain` (Login Widget uchun) va Mini App URL'i.
+
+Keyingi odamlarni portaldagi "Odam taklif qilish" bo'limidan taklif qilasiz. Har havola bir martalik va 7 kun amal qiladi.
+
 Tekshiruvlar: `pnpm test`, `pnpm --filter @liveportal/api test:e2e`, `pnpm lint`, `pnpm build`.
 
 ## Keyingi qadam
 
-`docs/07-open-questions.md` dagi taklif javoblarni tasdiqlash → `docs/09-fast-track.md` bo'yicha 2-kun: Telegram auth (Login Widget + Mini App) va bot orqali akkaunt bog'lash.
+`docs/09-fast-track.md` bo'yicha 3-kun: loyihalar va a'zolar API, loyiha darajasidagi ruxsatlar.

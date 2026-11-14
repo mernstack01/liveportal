@@ -3,6 +3,7 @@ import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { App } from 'supertest/types.js';
 import { AppModule } from './../src/app.module.js';
+import { configureApp } from './../src/app.setup.js';
 
 describe('LivePortal API (e2e)', () => {
   let app: INestApplication<App>;
@@ -13,7 +14,7 @@ describe('LivePortal API (e2e)', () => {
     }).compile();
 
     app = moduleFixture.createNestApplication();
-    app.setGlobalPrefix('api/v1');
+    configureApp(app, 'http://localhost:5173');
     await app.init();
   });
 

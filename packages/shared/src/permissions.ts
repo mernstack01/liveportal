@@ -5,6 +5,8 @@
  */
 export const PERMISSIONS = [
   'workspace.manage',
+  /** Faqat owner: workspace'ni o'chirish, egalikni topshirish. Admin owner yarata olmasligi shu bilan ta'minlanadi. */
+  'workspace.owner',
   'member.invite',
   'member.role.assign',
   'dashboard.view_all',
@@ -33,10 +35,11 @@ export interface SystemRole {
 }
 
 const ALL = PERMISSIONS;
+const ADMIN = PERMISSIONS.filter((p) => p !== 'workspace.owner');
 
 export const SYSTEM_ROLES: readonly SystemRole[] = [
   { name: 'owner', scope: 'WORKSPACE', permissions: ALL },
-  { name: 'admin', scope: 'WORKSPACE', permissions: ALL },
+  { name: 'admin', scope: 'WORKSPACE', permissions: ADMIN },
   { name: 'member', scope: 'WORKSPACE', permissions: ['project.create'] },
   {
     name: 'teamlead',

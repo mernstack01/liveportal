@@ -40,8 +40,8 @@ liveportal/
 
 | Kun | Natija (ko'rinadigan) |
 |---|---|
-| 1 | Skelet, docker-compose, Prisma migration, seed (workspace, 4 rol, standart statuslar). `GET /health` |
-| 2 | Telegram auth (Login Widget + Mini App), JWT, bot `/start` va taklif havolasi orqali akkaunt bog'lash |
+| 1 ✅ | Skelet, docker-compose, Prisma migration, seed (workspace, 4 rol, standart statuslar). `GET /health` |
+| 2 ✅ | Telegram auth (Login Widget + Mini App), JWT, bot `/start` va taklif havolasi orqali akkaunt bog'lash |
 | 3 | Project va a'zolar API, permission guard (`@RequirePermission`) |
 | 4 | Task API: yaratish, tayinlash, status, muddat, prioritet, izoh, @mention. `Event` + outbox |
 | 5 | Web: loyihalar ro'yxati, kanban board |
