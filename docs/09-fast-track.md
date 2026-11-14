@@ -36,6 +36,7 @@ liveportal/
 - **Outbox oddiy:** biznes amal va `Event` qatori bitta Prisma tranzaksiyasida yoziladi. Dispatcher har 2 soniyada `publishedAt IS NULL` qatorlarni `FOR UPDATE SKIP LOCKED` bilan olib, `EventBus` obunachilariga tarqatadi.
   - *4-kunda o'zgardi:* dispatcher BullMQ'siz, PostgreSQL'ning o'zida ishlaydi. Kafolati bir xil (bir nechta API nusxasida ham har event bir marta olinadi), lekin Redis'ga bog'liqlik yo'q. BullMQ 7-kunda Telegram'ga yuborish uchun kiradi: u yerda qayta urinish va rate-limit kerak.
 - **Kanban:** `@dnd-kit` + shadcn. Board'ni noldan yozmaslik.
+  - *5-kunda:* `@dnd-kit/core` ishlatildi; shadcn o'rniga bir nechta oddiy Tailwind komponent (`apps/web/src/components/ui.tsx`). Komponentlar ko'payganda shadcn qo'shiladi.
 
 ## 3. Kunma-kun reja
 
@@ -45,7 +46,7 @@ liveportal/
 | 2 ✅ | Telegram auth (Login Widget + Mini App), JWT, bot `/start` va taklif havolasi orqali akkaunt bog'lash |
 | 3 ✅ | Project va a'zolar API, permission guard (`@RequirePermission`) |
 | 4 ✅ | Task API: yaratish, tayinlash, status, muddat, prioritet, izoh, @mention. `Event` + outbox |
-| 5 | Web: loyihalar ro'yxati, kanban board |
+| 5 ✅ | Web: loyihalar ro'yxati, kanban board |
 | 6 | Web: task drawer (tafsilot, izohlar), "Mening tasklarim" |
 | 7 | Telegram bildirishnoma: tayinlandi, mention, izoh, Review'ga o'tdi. Tugmalar: `[Boshladim] [Review'ga] [Ochish]` |
 | 8 | Cron: `due_soon`, `overdue`, ertalabki digest (09:00 Toshkent). Bot: `/mytasks`, `/today` |

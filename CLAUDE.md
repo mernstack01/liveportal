@@ -9,7 +9,7 @@ IT Live Academy ichki portali: loyihalar, tasklar, Telegram bildirishnomalari. T
 
 ## Tuzilma
 - `apps/api` — NestJS 12, ESM (`.js` bilan import), Prisma 7 + `@prisma/adapter-pg`. Client `src/generated/prisma` ga generatsiya qilinadi (git'da yo'q).
-- `apps/web` — Vite + React 19 + Tailwind 4 + TanStack Query. API chaqiruvlari faqat `src/api.ts` orqali.
+- `apps/web` — Vite + React 19 + Tailwind 4 + TanStack Query + react-router 8 + @dnd-kit. API chaqiruvlari faqat `src/api.ts` orqali, query kalitlari `src/queries.ts` da, o'zbekcha yorliqlar `src/labels.ts` da. UI ruxsatga qarab ko'rinadi (`useMe().can`, `project.myPermissions`), lekin haqiqiy tekshiruv API'da.
 - `packages/shared` — rollar, ruxsatlar, workflow, event nomlari. O'zgartirgandan keyin `pnpm --filter @liveportal/shared build`.
 
 ## Qoidalar
@@ -20,6 +20,11 @@ IT Live Academy ichki portali: loyihalar, tasklar, Telegram bildirishnomalari. T
 5. Har yangi endpoint uchun kamida bitta e2e test (`apps/api/test`).
 6. Sxema o'zgarsa: `pnpm db:migrate --name <nom>`; migration fayllarini qo'lda tahrirlamang.
 7. Sir (bot token, parol) faqat `.env` da, hech qachon kodda yoki hujjatda.
+
+## Tekshirish
+- Testlar kodni yangidan kompilyatsiya qiladi, dev server esa yo'q. API'ni o'zgartirgandan keyin dev logida **o'zgarishdan keyingi** `Nest application successfully started` qatorini toping; yo'q bo'lsa (`Found N errors` bilan qotib qolgan), `pnpm dev` ni qayta ishga tushiring.
+- `pnpm build` ni `pnpm dev` ishlab turganda ishga tushirmang (`dist` o'chadi, dev API to'xtaydi). API uchun `tsc --noEmit` yetarli.
+- Brauzerda tekshirish uchun haqiqiy akkauntlarga tegmang: vaqtinchalik foydalanuvchi yarating (telegramId 9000000xx) va oxirida uning ma'lumotlarini o'chiring.
 
 ## Buyruqlar
 `pnpm infra:up` · `pnpm db:migrate` · `pnpm db:seed` · `pnpm dev` · `pnpm test` · `pnpm --filter @liveportal/api test:e2e` · `pnpm lint` · `pnpm build`
