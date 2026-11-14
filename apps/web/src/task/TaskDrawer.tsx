@@ -18,6 +18,7 @@ type Patch = Partial<{
   description: string | null
   priority: Priority
   dueDate: string | null
+  dueTime: string | null
   assigneeId: string | null
   statusId: string
 }>
@@ -165,9 +166,18 @@ function TaskBody({ task, project, queryRef }: { task: TaskDetail; project: Proj
               value={task.dueDate?.slice(0, 10) ?? ''}
               disabled={!can('task.update')}
               onChange={(e) => save({ dueDate: e.target.value || null })}
-              className={`${fieldClass} ${!isClosed && isOverdue(task.dueDate) ? 'border-red-300 text-red-700' : ''}`}
+              className={`${fieldClass} ${!isClosed && isOverdue(task.dueDate, task.dueTime) ? 'border-red-300 text-red-700' : ''}`}
             />
-            {!isClosed && isOverdue(task.dueDate) && <span className="shrink-0 text-xs font-medium text-red-600">kechikdi</span>}
+            {/* Soat ixtiyoriy: bo'lsa, shu daqiqa o'tishi bilan Telegram'ga "muddati o'tdi" boradi */}
+            <input
+              type="time"
+              aria-label="Muddat soati"
+              value={task.dueTime ?? ''}
+              disabled={!can('task.update') || !task.dueDate}
+              onChange={(e) => save({ dueTime: e.target.value || null })}
+              className={`${fieldClass} w-32 shrink-0 ${!isClosed && isOverdue(task.dueDate, task.dueTime) ? 'border-red-300 text-red-700' : ''}`}
+            />
+            {!isClosed && isOverdue(task.dueDate, task.dueTime) && <span className="shrink-0 text-xs font-medium text-red-600">kechikdi</span>}
           </div>
         </Row>
         <Row label="Muallif">

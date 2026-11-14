@@ -10,6 +10,7 @@ import { OutboxDispatcher } from '../src/events/outbox.dispatcher.js';
 import type { RenderedMessage } from '../src/notifications/notification-message.js';
 import { NotificationSender } from '../src/notifications/notification.sender.js';
 import { TelegramGateway } from '../src/notifications/telegram.gateway.js';
+import { DeadlineJob } from '../src/scheduler/deadline.job.js';
 import { MorningJob } from '../src/scheduler/morning.job.js';
 import { SchedulerService } from '../src/scheduler/scheduler.service.js';
 import { addDays, localDay } from '../src/tasks/due.js';
@@ -91,9 +92,10 @@ describe('Ertalabki ish: kechikkanlar va xulosa (e2e)', () => {
 
   afterAll(async () => {
     const userIds = Object.values(users).map((u) => u.id);
-    const ids = Object.values(taskIds);
+    // Loyihadagi hamma tasklar (testlarda yaratilgan soatlilar ham) va foydalanuvchilarga borgan barcha xabarlar.
+    const ids = (await prisma.task.findMany({ where: { projectId }, select: { id: true } })).map((t) => t.id);
     const events = await prisma.event.findMany({ where: { OR: [{ entityId: { in: [projectId, ...ids, ...userIds] } }] }, select: { id: true } });
-    await prisma.notification.deleteMany({ where: { eventId: { in: events.map((e) => e.id) } } });
+    await prisma.notification.deleteMany({ where: { OR: [{ eventId: { in: events.map((e) => e.id) } }, { userId: { in: userIds } }] } });
     await prisma.event.deleteMany({ where: { id: { in: events.map((e) => e.id) } } });
     await prisma.task.deleteMany({ where: { projectId } });
     await prisma.workflowStatus.deleteMany({ where: { projectId } });
@@ -105,14 +107,17 @@ describe('Ertalabki ish: kechikkanlar va xulosa (e2e)', () => {
     await app.close();
   });
 
-  it('bajaruvchiga bitta xulosa, teamlead’ga "muddati o‘tdi"; yopilgan va uzoq tasklar e’tiborsiz', async () => {
+  it('bajaruvchiga xulosa va "taskingiz muddati o‘tdi", teamlead’ga "muddati o‘tdi"; yopilgan va uzoq tasklar e’tiborsiz', async () => {
     const result = await app.get(MorningJob).run(now);
     expect(result).toMatchObject({ ran: true, period: today, overdue: 1, digests: 1 });
     await flush();
-    const byChat = new Map(take().map((s) => [s.chatId, s.message.text]));
+    const sent = take();
+    const to = (who: Who) => sent.filter((s) => s.chatId === String(tg[who])).map((s) => s.message.text);
 
-    expect([...byChat.keys()].sort()).toEqual([String(tg.lead), String(tg.mentor)].sort());
-    const digest = byChat.get(String(tg.mentor))!;
+    expect(sent).toHaveLength(3);
+    expect(to('quiet')).toEqual([]);
+    const digest = to('mentor').find((t) => t.includes('Xayrli tong'))!;
+    expect(to('mentor').find((t) => t.includes('Taskingiz muddati o‘tdi'))).toContain(`<b>${key}-1</b> · Kechikkan`);
     expect(digest).toContain('☀️ <b>Xayrli tong!</b>');
     expect(digest).toContain(`🔴 Muddati o‘tgan (1)\n• <b>${key}-1</b> Kechikkan`);
     expect(digest).toContain(`🟠 Bugun (1)\n• <b>${key}-2</b> Bugungi`);
@@ -120,7 +125,7 @@ describe('Ertalabki ish: kechikkanlar va xulosa (e2e)', () => {
     expect(digest).toContain('Yana 1 ta ochiq task: /mytasks');
     expect(digest).not.toContain('Yopilgan');
 
-    const overdue = byChat.get(String(tg.lead))!;
+    const [overdue] = to('lead');
     expect(overdue).toContain('⏰ Muddati o‘tdi');
     expect(overdue).toContain(`<b>${key}-1</b> · Kechikkan`);
     expect(overdue).toContain('Bajaruvchi: E2E mentor');
@@ -138,11 +143,12 @@ describe('Ertalabki ish: kechikkanlar va xulosa (e2e)', () => {
     const overdueEvents = await prisma.event.findMany({ where: { type: 'task.overdue', entityId: { in: Object.values(taskIds) } } });
     expect(overdueEvents.map((e) => e.entityId).sort()).toEqual([taskIds.Kechikkan, taskIds.Bugungi].sort());
 
-    // Xulosa yuborilishidan oldin mentor hamma tasklarini yopdi.
+    // Xabarlar yuborilishidan oldin mentor hamma tasklarini yopdi: eskirgan xabarlar ketmaydi.
     await prisma.task.updateMany({ where: { assigneeId: users.mentor.id }, data: { statusId: statuses.Done } });
     await flush();
-    const sent = take();
-    expect(sent.map((s) => s.chatId)).toEqual([String(tg.lead)]);
+    expect(take()).toEqual([]);
+    const skipped = await prisma.notification.count({ where: { kind: 'overdue', status: 'skipped', event: { entityId: taskIds.Bugungi } } });
+    expect(skipped).toBe(2);
     const digest = await prisma.notification.findFirstOrThrow({
       where: { userId: users.mentor.id, kind: 'digest', status: 'skipped' },
     });
@@ -155,5 +161,39 @@ describe('Ertalabki ish: kechikkanlar va xulosa (e2e)', () => {
     expect(await prisma.jobRun.count({ where: { period: farPeriod } })).toBe(0);
     await scheduler.tick(new Date('2031-01-01T04:00:00Z')); // 09:00
     expect(await prisma.jobRun.count({ where: { period: farPeriod } })).toBe(1);
+  });
+
+  it('soatli muddat: daqiqa o‘tishi bilan bajaruvchi, muallif va teamlead’ga, bir marta', async () => {
+    const res = await http()
+      .post(`/api/v1/projects/${projectId}/tasks`)
+      .set(as('lead'))
+      .send({ title: 'Soatli', assigneeId: users.quiet.id, dueDate: today, dueTime: '00:00' })
+      .expect(201);
+    expect(res.body).toMatchObject({ dueTime: '00:00' });
+    await http().post(`/api/v1/projects/${projectId}/tasks`).set(as('lead')).send({ title: 'Ertaga soatli', assigneeId: users.quiet.id, dueDate: addDays(today, 1), dueTime: '00:00' }).expect(201);
+    await flush();
+    take();
+
+    const jobs = app.get(DeadlineJob);
+    expect(await jobs.run(now)).toBe(1);
+    expect(await jobs.run(now)).toBe(0);
+    await flush();
+    const sent = take();
+    const quiet = sent.find((s) => s.chatId === String(tg.quiet))!;
+    expect(quiet.message.text).toContain('⏰ Taskingiz muddati o‘tdi');
+    expect(quiet.message.text).toContain(`📅 Muddat edi: ${today.split('-').reverse().join('.')} 00:00`);
+    expect(quiet.message.buttons[0]).toEqual([
+      { text: '▶️ Boshladim', callbackData: `ts:${res.body.id}:start` },
+      { text: '👀 Review’ga', callbackData: `ts:${res.body.id}:review` },
+    ]);
+    expect(sent.some((s) => s.chatId === String(tg.lead) && s.message.text.includes('Bajaruvchi: E2E quiet'))).toBe(true);
+    taskIds.Soatli = res.body.id;
+  });
+
+  it('soat faqat sana bilan; sana olib tashlansa, soat ham ketadi', async () => {
+    await http().post(`/api/v1/projects/${projectId}/tasks`).set(as('lead')).send({ title: 'X', dueTime: '10:00' }).expect(400);
+    await http().post(`/api/v1/projects/${projectId}/tasks`).set(as('lead')).send({ title: 'X', dueDate: today, dueTime: '25:00' }).expect(400);
+    const cleared = await http().patch(`/api/v1/projects/${projectId}/tasks/${taskIds.Soatli}`).set(as('lead')).send({ dueDate: null }).expect(200);
+    expect(cleared.body).toMatchObject({ dueDate: null, dueTime: null });
   });
 });

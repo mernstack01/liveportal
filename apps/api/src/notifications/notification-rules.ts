@@ -53,15 +53,14 @@ export class NotificationRules implements OnModuleInit {
       return this.enqueue(tx, e, 'review', [p.reporterId, ...closers.map((c) => c.userId)]);
     });
 
-    // Kechikdi (ertalabki ish): muallif va teamleadlarga. Bajaruvchi buni ertalabki xulosadan biladi.
+    // Muddati o'tdi: bajaruvchi, muallif va teamleadlarga (soatli muddat — darhol, soatsiz — ertalab).
     this.bus.subscribe('task.overdue', 'notify:overdue', async (e, tx) => {
       const p = e.payload as unknown as TaskPayload;
       const closers = await tx.projectMember.findMany({
         where: { projectId: p.projectId, role: { permissions: { has: 'task.close' } } },
         select: { userId: true },
       });
-      const recipients = [p.reporterId, ...closers.map((c) => c.userId)].filter((id) => id !== p.assigneeId);
-      return this.enqueue(tx, e, 'overdue', recipients);
+      return this.enqueue(tx, e, 'overdue', [p.assigneeId, p.reporterId, ...closers.map((c) => c.userId)]);
     });
 
     this.bus.subscribe('user.digest', 'notify:digest', (e, tx) => this.enqueue(tx, e, 'digest', [e.entityId]));

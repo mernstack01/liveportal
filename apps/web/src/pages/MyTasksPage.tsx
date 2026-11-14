@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router'
 import { Badge, ErrorText, Spinner } from '../components/ui'
-import { DUE_GROUP_LABELS, dueGroup, formatDay, PRIORITY_LABELS, PRIORITY_STYLES, type DueGroup } from '../labels'
+import { DUE_GROUP_LABELS, dueGroup, formatDue, PRIORITY_LABELS, PRIORITY_STYLES, type DueGroup } from '../labels'
 import { useMyTasks } from '../queries'
 import type { Task } from '../types'
 
@@ -10,7 +10,7 @@ const CLOSED = ['DONE', 'CANCELED']
 
 function TaskRow({ task }: { task: Task }) {
   const closed = CLOSED.includes(task.status.category)
-  const late = !closed && dueGroup(task.dueDate) === 'overdue'
+  const late = !closed && dueGroup(task.dueDate, undefined, task.dueTime) === 'overdue'
   return (
     <li>
       <Link
@@ -26,7 +26,7 @@ function TaskRow({ task }: { task: Task }) {
             {task.status.name}
           </span>
         </span>
-        <span className={`w-20 text-right text-xs ${late ? 'font-medium text-red-600' : 'text-slate-500'}`}>{formatDay(task.dueDate)}</span>
+        <span className={`w-28 text-right text-xs ${late ? 'font-medium text-red-600' : 'text-slate-500'}`}>{formatDue(task.dueDate, task.dueTime)}</span>
       </Link>
     </li>
   )
@@ -35,7 +35,7 @@ function TaskRow({ task }: { task: Task }) {
 export function MyTasksPage() {
   const [all, setAll] = useState(false)
   const tasks = useMyTasks(all)
-  const groups = ORDER.map((g) => ({ group: g, tasks: (tasks.data ?? []).filter((t) => dueGroup(t.dueDate) === g) })).filter((g) => g.tasks.length > 0)
+  const groups = ORDER.map((g) => ({ group: g, tasks: (tasks.data ?? []).filter((t) => dueGroup(t.dueDate, undefined, t.dueTime) === g) })).filter((g) => g.tasks.length > 0)
 
   return (
     <main className="mx-auto max-w-5xl space-y-5 px-4 py-6">

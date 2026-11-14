@@ -12,11 +12,12 @@ import {
   type DragStartEvent,
 } from '@dnd-kit/core'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { useEffect, useMemo, useState, type FormEvent } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { api } from '../api'
-import { Avatar, Badge, ErrorText } from '../components/ui'
-import { formatDay, humanError, isOverdue, PRIORITY_LABELS, PRIORITY_STYLES } from '../labels'
+import { Avatar, Badge, Button, ErrorText } from '../components/ui'
+import { CreateTaskDialog } from './CreateTaskDialog'
+import { formatDue, humanError, isOverdue, PRIORITY_LABELS, PRIORITY_STYLES } from '../labels'
 import { keys, useTasks } from '../queries'
 import type { Priority, ProjectDetail, StatusCategory, Task, WorkflowStatus } from '../types'
 
@@ -29,7 +30,7 @@ function byPriority(a: Task, b: Task) {
 
 function TaskCard({ task, overlay = false }: { task: Task; overlay?: boolean }) {
   const closed = CLOSED.includes(task.status.category)
-  const late = !closed && isOverdue(task.dueDate)
+  const late = !closed && isOverdue(task.dueDate, task.dueTime)
   return (
     <div
       className={`space-y-2 rounded-lg bg-white p-3 text-left shadow-sm ring-1 ring-slate-200 ${overlay ? 'rotate-1 shadow-lg ring-slate-400' : ''} ${closed ? 'opacity-70' : ''}`}
@@ -41,7 +42,7 @@ function TaskCard({ task, overlay = false }: { task: Task; overlay?: boolean }) 
       <p className={`text-sm leading-snug text-slate-900 ${closed ? 'line-through decoration-slate-400' : ''}`}>{task.title}</p>
       {(task.dueDate || task.assignee) && (
         <div className="flex items-center justify-between gap-2">
-          <span className={`text-xs ${late ? 'font-medium text-red-600' : 'text-slate-500'}`}>{task.dueDate ? formatDay(task.dueDate) : ''}</span>
+          <span className={`text-xs ${late ? 'font-medium text-red-600' : 'text-slate-500'}`}>{task.dueDate ? formatDue(task.dueDate, task.dueTime) : ''}</span>
           {task.assignee && <Avatar person={task.assignee} size="sm" />}
         </div>
       )}
@@ -73,68 +74,17 @@ function DraggableCard({ task, disabled }: { task: Task; disabled: boolean }) {
   )
 }
 
-function QuickAdd({ projectId, status }: { projectId: string; status: WorkflowStatus }) {
-  const queryClient = useQueryClient()
-  const [open, setOpen] = useState(false)
-  const [title, setTitle] = useState('')
-  const create = useMutation({
-    mutationFn: () => api<Task>(`/projects/${projectId}/tasks`, { method: 'POST', body: JSON.stringify({ title, statusId: status.id }) }),
-    onSuccess: () => {
-      setTitle('')
-      void queryClient.invalidateQueries({ queryKey: keys.tasks(projectId) })
-    },
-  })
-
-  if (!open) {
-    return (
-      <button onClick={() => setOpen(true)} className="w-full rounded-md px-2 py-1.5 text-left text-sm text-slate-500 hover:bg-slate-200/60 hover:text-slate-800">
-        + Task qo‘shish
-      </button>
-    )
-  }
-  const submit = (e: FormEvent) => {
-    e.preventDefault()
-    if (title.trim()) create.mutate()
-  }
-  return (
-    <form onSubmit={submit} className="space-y-2">
-      <textarea
-        autoFocus
-        rows={2}
-        maxLength={200}
-        value={title}
-        onChange={(e) => setTitle(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter' && !e.shiftKey) submit(e)
-          if (e.key === 'Escape') setOpen(false)
-        }}
-        placeholder="Nima qilish kerak?"
-        className="w-full resize-none rounded-md border border-slate-300 bg-white p-2 text-sm outline-none focus:border-slate-500"
-      />
-      <ErrorText error={create.error} />
-      <div className="flex gap-2">
-        <button disabled={create.isPending || !title.trim()} className="rounded-md bg-slate-900 px-3 py-1.5 text-xs font-medium text-white disabled:opacity-50">
-          Qo‘shish
-        </button>
-        <button type="button" onClick={() => setOpen(false)} className="rounded-md px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-200/60">
-          Bekor
-        </button>
-      </div>
-    </form>
-  )
-}
-
 function Column({
   status,
   tasks,
-  projectId,
   canAdd,
   canDrag,
+  onAdd,
 }: {
   status: WorkflowStatus
   tasks: Task[]
-  projectId: string
   canAdd: boolean
+  onAdd: () => void
   canDrag: boolean
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: status.id })
@@ -155,7 +105,9 @@ function Column({
       </ul>
       {canAdd && (
         <div className="pt-2">
-          <QuickAdd projectId={projectId} status={status} />
+          <button onClick={onAdd} className="w-full rounded-md px-2 py-1.5 text-left text-sm text-slate-500 hover:bg-slate-200/60 hover:text-slate-800">
+            + Task qo‘shish
+          </button>
         </div>
       )}
     </section>
@@ -168,6 +120,8 @@ export function Board({ project, userId }: { project: ProjectDetail; userId: str
   const [onlyMine, setOnlyMine] = useState(false)
   const [activeId, setActiveId] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
+  /** Yangi task oynasi: qaysi ustunga (undefined — yopiq). */
+  const [creatingIn, setCreatingIn] = useState<string | null | undefined>(undefined)
   const can = (p: string) => project.myPermissions.includes(p)
   const archived = project.status === 'ARCHIVED'
 
@@ -227,6 +181,11 @@ export function Board({ project, userId }: { project: ProjectDetail; userId: str
   return (
     <div className="mx-auto max-w-7xl space-y-3">
       <div className="flex flex-wrap items-center gap-3 px-4">
+        {!archived && can('task.create') && (
+          <Button onClick={() => setCreatingIn(null)} className="py-1.5">
+            + Yangi task
+          </Button>
+        )}
         <label className="flex items-center gap-2 text-sm text-slate-600">
           <input type="checkbox" checked={onlyMine} onChange={(e) => setOnlyMine(e.target.checked)} className="size-4 rounded border-slate-300" />
           Faqat menga berilganlar
@@ -254,8 +213,8 @@ export function Board({ project, userId }: { project: ProjectDetail; userId: str
               key={status.id}
               status={status}
               tasks={list}
-              projectId={project.id}
               canDrag={canDrag}
+              onAdd={() => setCreatingIn(status.id)}
               canAdd={!archived && can('task.create') && (!CLOSED.includes(status.category) || can('task.close'))}
             />
           ))}
@@ -263,6 +222,7 @@ export function Board({ project, userId }: { project: ProjectDetail; userId: str
         {/* Karta optimistik tarzda yangi ustunga o'tadi: eski joyiga qaytish animatsiyasi chalg'itadi. */}
         <DragOverlay dropAnimation={null}>{activeTask ? <TaskCard task={activeTask} overlay /> : null}</DragOverlay>
       </DndContext>
+      {creatingIn !== undefined && <CreateTaskDialog project={project} statusId={creatingIn ?? undefined} onClose={() => setCreatingIn(undefined)} />}
       {tasks.isPending && <p className="px-4 text-sm text-slate-500">Tasklar yuklanmoqda…</p>}
     </div>
   )

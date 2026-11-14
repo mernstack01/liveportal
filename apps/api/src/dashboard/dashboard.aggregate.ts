@@ -1,3 +1,5 @@
+import { isPastDue } from '../tasks/due.js';
+
 /**
  * Rahbar dashboardi (docs/07, 7-savol): qaysi loyiha kechikyapti, kim band, bu hafta nima yopildi.
  * Sof funksiya: kirish — bazadan olingan qatorlar, chiqish — API javobi.
@@ -20,6 +22,7 @@ export interface DashTask {
   projectId: string;
   category: Category;
   dueDate: Date | null;
+  dueTime: string | null;
   completedAt: Date | null;
   assigneeId: string | null;
 }
@@ -42,12 +45,14 @@ export function aggregateDashboard(input: {
   /** Haftaning birinchi kuni (mahalliy sana) va uning aniq boshlanish vaqti. */
   weekStartDay: string;
   weekStart: Date;
+  /** Soatli muddatlar uchun: hozirgi vaqt. */
+  now: Date;
 }) {
-  const { projects, tasks, members, today, weekStartDay, weekStart } = input;
+  const { projects, tasks, members, today, weekStartDay, weekStart, now } = input;
   const projectById = new Map(projects.map((p) => [p.id, p]));
   const memberById = new Map(members.map((m) => [m.userId, m]));
   const isOpen = (t: DashTask) => OPEN.includes(t.category);
-  const isLate = (t: DashTask) => isOpen(t) && t.dueDate !== null && day(t.dueDate) < today;
+  const isLate = (t: DashTask) => isOpen(t) && isPastDue(t.dueDate, t.dueTime, today, now);
   const doneThisWeek = (t: DashTask) => t.category === 'DONE' && t.completedAt !== null && t.completedAt >= weekStart;
   const taskKey = (t: DashTask) => `${projectById.get(t.projectId)?.key ?? '?'}-${t.number}`;
   const person = (id: string | null) => {
@@ -96,6 +101,7 @@ export function aggregateDashboard(input: {
       project: { id: t.projectId, name: projectById.get(t.projectId)?.name ?? '' },
       assignee: person(t.assigneeId),
       dueDate: t.dueDate,
+      dueTime: t.dueTime,
       daysLate: daysBetween(day(t.dueDate!), today),
     }));
 

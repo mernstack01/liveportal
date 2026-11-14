@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { addDays, dueBucket, localDay, localHour, localMidnight, weekStart } from './due.js';
+import { addDays, deadlineAt, dueBucket, isPastDue, localDay, localHour, localMidnight, weekStart } from './due.js';
 
 describe('due', () => {
   it('Toshkent sanasi UTC’dan 5 soat oldin almashadi', () => {
@@ -31,5 +31,15 @@ describe('due', () => {
     expect(weekStart('2026-11-16')).toBe('2026-11-16'); // dushanba
     expect(weekStart('2026-11-18')).toBe('2026-11-16');
     expect(localMidnight('2026-11-16').toISOString()).toBe('2026-11-15T19:00:00.000Z');
+  });
+
+  it('soatli muddat: Toshkent vaqtida aynan shu daqiqa', () => {
+    const due = new Date('2026-11-15T00:00:00.000Z');
+    expect(deadlineAt(due, '18:00').toISOString()).toBe('2026-11-15T13:00:00.000Z');
+    expect(isPastDue(due, '18:00', '2026-11-15', new Date('2026-11-15T12:59:00Z'))).toBe(false);
+    expect(isPastDue(due, '18:00', '2026-11-15', new Date('2026-11-15T13:00:00Z'))).toBe(true);
+    // soatsiz: kun tugagach
+    expect(isPastDue(due, null, '2026-11-15', new Date('2026-11-15T18:00:00Z'))).toBe(false);
+    expect(isPastDue(due, null, '2026-11-16', new Date('2026-11-15T19:30:00Z'))).toBe(true);
   });
 });

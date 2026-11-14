@@ -7,6 +7,7 @@ export interface OpenTask {
   projectId: string;
   projectName: string;
   dueDate: Date | null;
+  dueTime?: string | null;
 }
 
 /** Odamga berilgan ochiq tasklar (arxivlanmagan loyihalarda). Bot va ertalabki xulosa uchun. */
@@ -19,7 +20,7 @@ export async function openTasksFor(prisma: PrismaService, userId: string): Promi
     },
     orderBy: [{ dueDate: { sort: 'asc', nulls: 'last' } }, { createdAt: 'asc' }],
     take: 200,
-    select: { number: true, title: true, dueDate: true, projectId: true, project: { select: { key: true, name: true } } },
+    select: { number: true, title: true, dueDate: true, dueTime: true, projectId: true, project: { select: { key: true, name: true } } },
   });
   return rows.map((t) => ({
     key: `${t.project.key}-${t.number}`,
@@ -28,5 +29,6 @@ export async function openTasksFor(prisma: PrismaService, userId: string): Promi
     projectId: t.projectId,
     projectName: t.project.name,
     dueDate: t.dueDate,
+    dueTime: t.dueTime,
   }));
 }

@@ -15,6 +15,7 @@ export interface MessageTask {
   projectId: string;
   projectName: string;
   dueDate: Date | null;
+  dueTime?: string | null;
   priority: string;
   statusName: string;
   statusCategory: string;
@@ -47,10 +48,10 @@ function excerpt(text: string, max = 300): string {
   return clean.length > max ? `${clean.slice(0, max - 1)}…` : clean;
 }
 
-function day(date: Date): string {
+function day(date: Date, time?: string | null): string {
   const iso = date.toISOString().slice(0, 10);
   const [y, m, d] = iso.split('-');
-  return `${d}.${m}.${y}`;
+  return `${d}.${m}.${y}${time ? ` ${time}` : ''}`;
 }
 
 /** Telegram tugmasi faqat https manzilni qabul qiladi (lokalda tugma chiqmaydi). */
@@ -90,7 +91,7 @@ export function renderMessage(input: MessageInput): RenderedMessage {
   switch (input.kind) {
     case 'assigned':
       lines.push(`📌 ${actor} sizga task berdi`, head, `📁 ${escapeHtml(task.projectName)}`);
-      if (task.dueDate) lines.push(`⏰ Muddat: ${day(task.dueDate)}`);
+      if (task.dueDate) lines.push(`⏰ Muddat: ${day(task.dueDate, task.dueTime)}`);
       if (PRIORITY_MARK[task.priority]) lines.push(PRIORITY_MARK[task.priority]);
       break;
     case 'mentioned':
@@ -103,8 +104,9 @@ export function renderMessage(input: MessageInput): RenderedMessage {
       lines.push(`👀 Review’ga o‘tdi`, head, `👤 Bajaruvchi: ${escapeHtml(task.assigneeName ?? '—')}`, `📁 ${escapeHtml(task.projectName)}`);
       break;
     case 'overdue':
-      lines.push(`⏰ Muddati o‘tdi`, head, `👤 Bajaruvchi: ${escapeHtml(task.assigneeName ?? '—')}`);
-      if (task.dueDate) lines.push(`📅 Muddat edi: ${day(task.dueDate)}`);
+      if (task.assigneeId === input.recipientId) lines.push(`⏰ Taskingiz muddati o‘tdi`, head);
+      else lines.push(`⏰ Muddati o‘tdi`, head, `👤 Bajaruvchi: ${escapeHtml(task.assigneeName ?? '—')}`);
+      if (task.dueDate) lines.push(`📅 Muddat edi: ${day(task.dueDate, task.dueTime)}`);
       lines.push(`📁 ${escapeHtml(task.projectName)}`);
       break;
   }

@@ -60,9 +60,22 @@ function addDays(day: string, days: number): string {
   return todayStr(d)
 }
 
-export function isOverdue(iso: string | null): boolean {
+/** Soatli muddatning aniq vaqti (Toshkent, UTC+5). */
+function deadline(iso: string, time: string): Date {
+  return new Date(`${iso.slice(0, 10)}T${time}:00+05:00`)
+}
+
+/** Soat bo'lsa — aynan shu daqiqadan keyin; bo'lmasa — kun tugagach. */
+export function isOverdue(iso: string | null, time?: string | null): boolean {
   if (!iso) return false
+  if (time) return deadline(iso, time) <= new Date()
   return iso.slice(0, 10) < todayStr()
+}
+
+/** "15.11.2026 18:00" yoki "15.11.2026". */
+export function formatDue(iso: string | null, time?: string | null): string {
+  if (!iso) return ''
+  return time ? `${formatDay(iso)} ${time}` : formatDay(iso)
 }
 
 export type DueGroup = 'overdue' | 'today' | 'week' | 'later' | 'none'
@@ -74,10 +87,11 @@ export const DUE_GROUP_LABELS: Record<DueGroup, string> = {
   none: 'Muddatsiz',
 }
 
-export function dueGroup(iso: string | null, today = todayStr()): DueGroup {
+export function dueGroup(iso: string | null, today = todayStr(), time?: string | null): DueGroup {
   if (!iso) return 'none'
   const day = iso.slice(0, 10)
   if (day < today) return 'overdue'
+  if (time && isOverdue(iso, time)) return 'overdue'
   if (day === today) return 'today'
   if (day <= addDays(today, 7)) return 'week'
   return 'later'

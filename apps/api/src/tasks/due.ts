@@ -27,10 +27,12 @@ export function dayStart(day: string): Date {
 
 export type DueBucket = 'overdue' | 'today' | 'tomorrow' | 'week' | 'later' | 'none';
 
-export function dueBucket(dueDate: Date | null, today: string): DueBucket {
+export function dueBucket(dueDate: Date | null, today: string, dueTime?: string | null, now?: Date): DueBucket {
   if (!dueDate) return 'none';
   const day = dueDate.toISOString().slice(0, 10);
   if (day < today) return 'overdue';
+  // Bugungi soatli muddat o'tib ketgan bo'lsa — kechikkan.
+  if (dueTime && now && day === today && isPastDue(dueDate, dueTime, today, now)) return 'overdue';
   if (day === today) return 'today';
   if (day === addDays(today, 1)) return 'tomorrow';
   if (day <= addDays(today, 7)) return 'week';
@@ -49,4 +51,22 @@ export function localMidnight(day: string): Date {
 export function weekStart(today: string): string {
   const weekday = new Date(`${today}T00:00:00.000Z`).getUTCDay(); // 0 = yakshanba
   return addDays(today, -((weekday + 6) % 7));
+}
+
+/** "HH:MM" (Toshkent vaqti). */
+export const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
+
+/** Soatli muddatning aniq vaqti: sana + soat, Toshkent bo'yicha. */
+export function deadlineAt(dueDate: Date, dueTime: string): Date {
+  const day = dueDate.toISOString().slice(0, 10);
+  return new Date(`${day}T${dueTime}:00+05:00`);
+}
+
+/**
+ * Muddati o'tganmi: soat bo'lsa — aynan shu daqiqadan keyin; bo'lmasa — kun tugagach (ertasi kun).
+ */
+export function isPastDue(dueDate: Date | null, dueTime: string | null, today: string, now: Date): boolean {
+  if (!dueDate) return false;
+  if (dueTime) return deadlineAt(dueDate, dueTime) <= now;
+  return dueDate.toISOString().slice(0, 10) < today;
 }

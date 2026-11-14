@@ -14,7 +14,7 @@ export interface MorningResult {
 
 /**
  * Ertalabki ish (kuniga bir marta, Toshkent sanasi bo'yicha):
- * 1) muddati o'tgan ochiq tasklar uchun `task.overdue` (har muddat uchun bir marta);
+ * 1) muddati o'tgan ochiq tasklar uchun `task.overdue` (faqat soatsiz muddatlar; soatlilarni DeadlineJob beradi);
  * 2) muddati o'tgan / bugun / ertaga tugaydigan taski bor har bir odamga `user.digest`.
  * Hammasi va JobRun qatori bitta tranzaksiyada: xato bo'lsa hech narsa yozilmaydi, keyingi tekshiruvda qayta.
  */
@@ -39,6 +39,7 @@ export class MorningJob {
           JOIN "WorkflowStatus" s ON s.id = t."statusId"
           JOIN "Project" p ON p.id = t."projectId"
           WHERE t."dueDate" < ${dayStart(today)}
+            AND t."dueTime" IS NULL
             AND s.category NOT IN ('DONE', 'CANCELED')
             AND p.status <> 'ARCHIVED'
             AND NOT EXISTS (

@@ -199,7 +199,8 @@ model Task {
   assigneeId   String?
   reporterId   String
   parentId     String?
-  dueDate      DateTime?
+  dueDate      DateTime? // kun (UTC yarim tun)
+  dueTime      String? // ixtiyoriy soat "HH:MM", Toshkent vaqti. Bor bo'lsa, muddat aynan shu daqiqada tugaydi
   estimate     Int? // soat yoki story point — ❓
   customFields Json      @default("{}")
   completedAt  DateTime?

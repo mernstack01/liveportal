@@ -97,7 +97,7 @@ export class NotificationSender implements OnApplicationBootstrap, OnApplication
     try {
       const message = await this.build(n.kind as NotificationKind, n.userId, n.event);
       if (message === 'empty') {
-        // Ertalabki xulosa: odam tasklarini yopib ulgurgan, yuboradigan narsa yo'q.
+        // Xulosa bo'sh yoki task allaqachon yopilgan: yuboradigan narsa yo'q.
         await this.prisma.notification.update({ where: { id }, data: { status: 'skipped' } });
         return false;
       }
@@ -140,7 +140,10 @@ export class NotificationSender implements OnApplicationBootstrap, OnApplication
       return renderDigest(tasks, localDay(new Date()), webOrigin, true) ?? 'empty';
     }
     const input = await this.buildInput(kind, recipientId, event);
-    return input ? renderMessage(input) : null;
+    if (!input) return null;
+    // Navbatda turgan paytda task yopilgan bo'lsa, "muddati o'tdi" endi kerak emas.
+    if (kind === 'overdue' && input.task && ['DONE', 'CANCELED'].includes(input.task.statusCategory)) return 'empty';
+    return renderMessage(input);
   }
 
   private async buildInput(
@@ -184,6 +187,7 @@ export class NotificationSender implements OnApplicationBootstrap, OnApplication
         projectId: task.projectId,
         projectName: task.project.name,
         dueDate: task.dueDate,
+        dueTime: task.dueTime,
         priority: task.priority,
         statusName: task.status.name,
         statusCategory: task.status.category,

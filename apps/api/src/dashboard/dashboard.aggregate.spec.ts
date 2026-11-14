@@ -10,6 +10,7 @@ const task = (projectId: string, category: Category, extra: Partial<DashTask> = 
   projectId,
   category,
   dueDate: null,
+  dueTime: null,
   completedAt: null,
   assigneeId: null,
   ...extra,
@@ -36,7 +37,7 @@ describe('aggregateDashboard', () => {
     task('b', 'TODO', { dueDate: d('2026-11-01') }), // kechikkan, egasiz
     task('b', 'DONE', { dueDate: d('2026-11-01'), completedAt: new Date('2026-11-02T10:00:00Z') }), // yopilgan: kechikkan emas
   ];
-  const r = aggregateDashboard({ projects, tasks, members, today, weekStartDay: '2026-11-16', weekStart });
+  const r = aggregateDashboard({ projects, tasks, members, today, weekStartDay: '2026-11-16', weekStart, now: new Date('2026-11-18T10:00:00Z') });
 
   it('umumiy raqamlar', () => {
     expect(r.weekStart).toBe('2026-11-16');
@@ -66,5 +67,14 @@ describe('aggregateDashboard', () => {
       expect.objectContaining({ userId: 'vali', open: 1, inProgress: 0, review: 1, overdue: 0, doneThisWeek: 0 }),
     ]);
     expect(r.doneThisWeek.map((t) => t.key)).toEqual(['A-1']);
+  });
+
+  it('soatli muddat: bugungi task soat o‘tishi bilan kechikkan hisoblanadi', () => {
+    const timed = [task('a', 'IN_PROGRESS', { dueDate: d('2026-11-18'), dueTime: '14:00', assigneeId: 'ali' })];
+    const before = aggregateDashboard({ projects, tasks: timed, members, today, weekStartDay: '2026-11-16', weekStart, now: new Date('2026-11-18T08:59:00Z') });
+    const after = aggregateDashboard({ projects, tasks: timed, members, today, weekStartDay: '2026-11-16', weekStart, now: new Date('2026-11-18T09:00:00Z') });
+    expect(before.summary.overdue).toBe(0);
+    expect(after.summary.overdue).toBe(1);
+    expect(after.overdue[0]).toMatchObject({ daysLate: 0, dueTime: '14:00' });
   });
 });

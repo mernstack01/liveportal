@@ -16,7 +16,8 @@ export class DashboardController {
   @Get()
   @RequirePermission('dashboard.view_all')
   async get(@CurrentWorkspace() workspace: WorkspaceContext) {
-    const today = localDay(new Date());
+    const now = new Date();
+    const today = localDay(now);
     const weekStartDay = weekStart(today);
     const [projects, tasks, members] = await Promise.all([
       this.prisma.project.findMany({
@@ -31,6 +32,7 @@ export class DashboardController {
           title: true,
           projectId: true,
           dueDate: true,
+          dueTime: true,
           completedAt: true,
           assigneeId: true,
           status: { select: { category: true } },
@@ -46,6 +48,7 @@ export class DashboardController {
       today,
       weekStartDay,
       weekStart: localMidnight(weekStartDay),
+      now,
       projects,
       tasks: tasks.map(({ status, ...t }) => ({ ...t, category: status.category as Category })),
       members: members.map((m) => ({ userId: m.userId, name: m.user.name, avatarUrl: m.user.avatarUrl, role: m.role.name })),

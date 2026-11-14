@@ -21,13 +21,15 @@ function myTasksButton(webOrigin: string) {
   return webOrigin.startsWith('https://') ? [[{ text: 'Mening tasklarim', webAppUrl: `${webOrigin.replace(/\/$/, '')}/my` }]] : [];
 }
 
-function sections(tasks: OpenTask[], today: string, buckets: DueBucket[]): string[] {
+function sections(tasks: OpenTask[], today: string, buckets: DueBucket[], now: Date): string[] {
   const out: string[] = [];
   for (const { bucket, title } of SECTIONS.filter((s) => buckets.includes(s.bucket))) {
-    const list = tasks.filter((t) => dueBucket(t.dueDate, today) === bucket);
+    const list = tasks.filter((t) => dueBucket(t.dueDate, today, t.dueTime, now) === bucket);
     if (list.length === 0) continue;
     const lines = list.slice(0, PER_SECTION).map((t) => {
-      const due = t.dueDate && bucket !== 'today' && bucket !== 'tomorrow' ? ` — ${shortDay(t.dueDate)}` : '';
+      const sameDay = bucket === 'today' || bucket === 'tomorrow';
+      const when = t.dueDate ? [sameDay ? '' : shortDay(t.dueDate), t.dueTime ?? ''].filter(Boolean).join(' ') : '';
+      const due = when ? ` — ${when}` : '';
       return `• <b>${escapeHtml(t.key)}</b> ${escapeHtml(t.title)}${due}`;
     });
     if (list.length > PER_SECTION) lines.push(`  … va yana ${list.length - PER_SECTION} ta`);
@@ -42,18 +44,18 @@ const URGENT: DueBucket[] = ['overdue', 'today', 'tomorrow'];
  * Ertalabki xulosa va `/today`: muddati o'tgan, bugun va ertaga tugaydigan tasklar.
  * Bo'sh bo'lsa null (ertalab bo'sh xabar yuborilmaydi).
  */
-export function renderDigest(tasks: OpenTask[], today: string, webOrigin: string, morning: boolean): RenderedMessage | null {
-  const body = sections(tasks, today, URGENT);
+export function renderDigest(tasks: OpenTask[], today: string, webOrigin: string, morning: boolean, now = new Date()): RenderedMessage | null {
+  const body = sections(tasks, today, URGENT, now);
   if (body.length === 0) return null;
   const head = morning ? '☀️ <b>Xayrli tong!</b> Bugun e’tibor kerak bo‘lgan tasklaringiz:' : '📋 <b>Bugungi tasklaringiz</b>';
-  const rest = tasks.filter((t) => !URGENT.includes(dueBucket(t.dueDate, today))).length;
+  const rest = tasks.filter((t) => !URGENT.includes(dueBucket(t.dueDate, today, t.dueTime, now))).length;
   const tail = rest > 0 ? `\n\nYana ${rest} ta ochiq task: /mytasks` : '';
   return { text: `${head}\n\n${body.join('\n\n')}${tail}`, buttons: myTasksButton(webOrigin) };
 }
 
 /** `/mytasks`: barcha ochiq tasklar muddat bo'yicha. */
-export function renderTaskList(tasks: OpenTask[], today: string, webOrigin: string): RenderedMessage {
+export function renderTaskList(tasks: OpenTask[], today: string, webOrigin: string, now = new Date()): RenderedMessage {
   if (tasks.length === 0) return { text: 'Sizda ochiq task yo‘q 🎉', buttons: [] };
-  const body = sections(tasks, today, SECTIONS.map((s) => s.bucket));
+  const body = sections(tasks, today, SECTIONS.map((s) => s.bucket), now);
   return { text: `📋 <b>Mening tasklarim</b> (${tasks.length})\n\n${body.join('\n\n')}`, buttons: myTasksButton(webOrigin) };
 }

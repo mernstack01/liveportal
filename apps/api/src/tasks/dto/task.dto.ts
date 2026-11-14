@@ -1,18 +1,24 @@
 import { z } from 'zod';
+import { TIME_RE } from '../due.js';
 
 const dateOnly = z.iso.date().transform((s) => new Date(`${s}T00:00:00.000Z`));
 export const PRIORITIES = ['LOW', 'MEDIUM', 'HIGH', 'URGENT'] as const;
 const id = z.string().min(1).max(64);
+/** Muddat soati "HH:MM" (Toshkent). Faqat sana bilan birga. */
+const time = z.string().regex(TIME_RE, 'Soat HH:MM ko‘rinishida bo‘lsin');
 
-export const createTaskSchema = z.object({
-  title: z.string().trim().min(1).max(200),
-  description: z.string().trim().max(10_000).optional(),
-  priority: z.enum(PRIORITIES).optional(),
-  dueDate: dateOnly.optional(),
-  assigneeId: id.optional(),
-  /** Berilmasa, loyihaning birinchi statusi (Backlog). */
-  statusId: id.optional(),
-});
+export const createTaskSchema = z
+  .object({
+    title: z.string().trim().min(1).max(200),
+    description: z.string().trim().max(10_000).optional(),
+    priority: z.enum(PRIORITIES).optional(),
+    dueDate: dateOnly.optional(),
+    dueTime: time.optional(),
+    assigneeId: id.optional(),
+    /** Berilmasa, loyihaning birinchi statusi (Backlog). */
+    statusId: id.optional(),
+  })
+  .refine((d) => !d.dueTime || d.dueDate, { message: 'Soat faqat sana bilan birga beriladi', path: ['dueTime'] });
 export type CreateTaskDto = z.infer<typeof createTaskSchema>;
 
 export const updateTaskSchema = z
@@ -21,6 +27,7 @@ export const updateTaskSchema = z
     description: z.string().trim().max(10_000).nullable(),
     priority: z.enum(PRIORITIES),
     dueDate: dateOnly.nullable(),
+    dueTime: time.nullable(),
     assigneeId: id.nullable(),
     statusId: id,
   })

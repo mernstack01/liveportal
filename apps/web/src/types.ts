@@ -51,6 +51,8 @@ export interface Task {
   description: string | null
   priority: Priority
   dueDate: string | null
+  /** "HH:MM" Toshkent vaqti; bo'lsa, muddat aynan shu daqiqada tugaydi. */
+  dueTime: string | null
   completedAt: string | null
   status: Omit<WorkflowStatus, 'order'>
   assignee: Person | null
@@ -101,6 +103,7 @@ export interface Dashboard {
     project: { id: string; name: string }
     assignee: DashboardPerson | null
     dueDate: string
+    dueTime: string | null
     daysLate: number
   }[]
   people: (DashboardPerson & { role: string; open: number; inProgress: number; review: number; overdue: number; doneThisWeek: number })[]

@@ -182,14 +182,14 @@ export function DashboardPage() {
                 <li key={t.id}>
                   <Link to={`/projects/${t.project.id}/tasks/${t.number}`} className="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50">
                     <span className="w-16 shrink-0">
-                      <Late>{t.daysLate} kun</Late>
+                      <Late>{t.daysLate > 0 ? `${t.daysLate} kun` : 'bugun'}</Late>
                     </span>
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-sm">
                         <span className="font-mono text-xs text-slate-500">{t.key}</span> {t.title}
                       </span>
                       <span className="block truncate text-xs text-slate-500">
-                        {t.project.name} · muddat {formatDay(t.dueDate)}
+                        {t.project.name} · muddat {formatDay(t.dueDate)}{t.dueTime ? ` ${t.dueTime}` : ''}
                       </span>
                     </span>
                     {t.assignee ? <Avatar person={t.assignee} size="sm" /> : <span className="text-xs text-slate-400">egasiz</span>}

@@ -26,6 +26,7 @@ export function toTask(t: TaskRow) {
     description: t.description,
     priority: t.priority,
     dueDate: t.dueDate,
+    dueTime: t.dueTime,
     completedAt: t.completedAt,
     status: t.status,
     assignee: toPerson(t.assignee),
@@ -127,6 +128,11 @@ export class TasksService {
     if (newStatus && (wasClosed || nowClosed)) needed.push('task.close');
     this.require(project, needed);
     if (assigneeChanged && assigneeId) await this.assertMember(project, assigneeId);
+
+    // Sana olib tashlansa, soat ham ketadi; soat faqat sana bilan.
+    if (fields.dueDate === null && task.dueTime) fields.dueTime = null;
+    const nextDate = fields.dueDate !== undefined ? fields.dueDate : task.dueDate;
+    if (fields.dueTime && !nextDate) throw new BadRequestException('Soat faqat sana bilan birga beriladi');
 
     const data: Prisma.TaskUncheckedUpdateInput = { ...fields };
     if (assigneeChanged) data.assigneeId = assigneeId;
