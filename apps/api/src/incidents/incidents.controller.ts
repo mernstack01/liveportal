@@ -1,8 +1,10 @@
-import { Body, Controller, Get, Param, Patch, Post, Query } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post, Query, UploadedFiles, UseInterceptors } from '@nestjs/common';
+import { FilesInterceptor } from '@nestjs/platform-express';
 import type { AuthUser, ProjectContext } from '../auth/auth.types.js';
 import { CurrentProject, CurrentUser, RequireProjectAccess } from '../auth/decorators.js';
 import { parse } from '../common/zod.js';
 import { createIncidentSchema, incidentNoteSchema, listIncidentsQuery, updateIncidentSchema } from './incident.dto.js';
+import { MAX_FILES } from '../files/uploads.js';
 import { IncidentsService } from './incidents.service.js';
 
 @Controller('projects/:projectId/incidents')
@@ -34,9 +36,17 @@ export class IncidentsController {
     return this.incidents.update(project, user.id, ref, parse(updateIncidentSchema, body));
   }
 
+  /** JSON ({ body }) yoki multipart (body + files[], 10 tagacha): skrinshot, log fayl. Ruxsat guard'da — fayl saqlanishidan oldin. */
   @Post(':ref/updates')
   @RequireProjectAccess('incident.manage')
-  note(@Param('ref') ref: string, @Body() body: unknown, @CurrentUser() user: AuthUser, @CurrentProject() project: ProjectContext) {
-    return this.incidents.note(project, user.id, ref, parse(incidentNoteSchema, body).body);
+  @UseInterceptors(FilesInterceptor('files', MAX_FILES))
+  note(
+    @Param('ref') ref: string,
+    @UploadedFiles() files: Express.Multer.File[] | undefined,
+    @Body() body: unknown,
+    @CurrentUser() user: AuthUser,
+    @CurrentProject() project: ProjectContext,
+  ) {
+    return this.incidents.note(project, user.id, ref, parse(incidentNoteSchema, body ?? {}).body, files ?? []);
   }
 }

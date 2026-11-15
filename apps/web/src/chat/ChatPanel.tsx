@@ -1,10 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useEffect, useMemo, useRef, useState, type ClipboardEvent, type DragEvent, type FormEvent } from 'react'
+import { useEffect, useMemo, useRef, useState, type DragEvent, type FormEvent } from 'react'
 import { api } from '../api'
+import { Attachments, PendingFiles } from '../components/attachments'
+import { usePendingFiles } from '../components/pending-files'
 import { Avatar, Button, ErrorText } from '../components/ui'
 import { todayStr } from '../labels'
 import { MentionText } from '../task/MentionText'
-import type { ChatAttachment, ChatMessage, ChatPage, ProjectDetail } from '../types'
+import type { ChatMessage, ChatPage, ProjectDetail } from '../types'
 
 /** internal — "Jamoa" (faqat xodimlar), client — "Mijoz bilan". */
 export type ChatKind = 'internal' | 'client'
@@ -13,8 +15,6 @@ const KIND = {
   internal: { path: 'chat', title: 'Jamoa chati', note: '🔒 Faqat xodimlar ko‘radi — mijoz ko‘rmaydi' },
   client: { path: 'client-chat', title: 'Mijoz bilan', note: '👥 Mijoz ham ko‘radi — ichki gaplarni “Jamoa” chatida yozing' },
 } as const
-const MAX_FILES = 10
-const MAX_MB = 20
 
 function dayLabel(iso: string): string {
   const day = todayStr(new Date(iso))
@@ -27,60 +27,6 @@ function dayLabel(iso: string): string {
 const time = (iso: string) => {
   const d = new Date(iso)
   return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
-}
-
-function fileSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`
-  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`
-  return `${(bytes / 1024 / 1024).toFixed(1)} MB`
-}
-
-/** Xabardagi fayllar: rasmlar ko'rinadi (bosilsa — to'liq hajmda), qolgani yuklab olinadi. */
-function Attachments({ items, mine, onMediaLoad }: { items: ChatAttachment[]; mine: boolean; onMediaLoad: () => void }) {
-  const images = items.filter((a) => a.kind === 'image')
-  const files = items.filter((a) => a.kind !== 'image')
-  return (
-    <div className="space-y-1.5">
-      {images.length > 0 && (
-        <div className={`grid gap-1 ${images.length === 1 ? 'grid-cols-1' : 'grid-cols-2'}`}>
-          {images.map((a) => (
-            <a key={a.id} href={a.url} target="_blank" rel="noreferrer" title={a.fileName} className="block overflow-hidden rounded-lg bg-slate-200">
-              <img
-                src={a.url}
-                alt={a.fileName}
-                loading="lazy"
-                onLoad={onMediaLoad}
-                className={images.length === 1 ? 'max-h-72 w-full max-w-xs object-contain' : 'aspect-square w-36 object-cover'}
-              />
-            </a>
-          ))}
-        </div>
-      )}
-      {files.map((a) => (
-        <a
-          key={a.id}
-          href={a.url}
-          download={a.fileName}
-          className={`flex max-w-xs items-center gap-2.5 rounded-lg px-3 py-2 text-sm ${mine ? 'bg-white/15 text-white hover:bg-white/25' : 'bg-white text-slate-800 ring-1 ring-slate-200 hover:ring-slate-400'}`}
-        >
-          <span aria-hidden className="text-lg">
-            📄
-          </span>
-          <span className="min-w-0 flex-1">
-            <span className="block truncate font-medium">{a.fileName}</span>
-            <span className={`text-xs ${mine ? 'text-white/70' : 'text-slate-500'}`}>{fileSize(a.size)} · yuklab olish</span>
-          </span>
-        </a>
-      ))}
-    </div>
-  )
-}
-
-/** Yuborishdan oldingi fayl: rasm bo'lsa — kichik ko'rinish. */
-interface Pending {
-  key: string
-  file: File
-  preview: string | null
 }
 
 /**
@@ -101,8 +47,7 @@ export function ChatPanel({ project, userId, kind = 'internal' }: { project: Pro
   const [older, setOlder] = useState<ChatMessage[]>([])
   const [olderHasMore, setOlderHasMore] = useState<boolean | null>(null)
   const [body, setBody] = useState('')
-  const [pending, setPending] = useState<Pending[]>([])
-  const [notice, setNotice] = useState<string | null>(null)
+  const { pending, add: addFiles, remove: dropPending, notice, setNotice, onPaste } = usePendingFiles()
   const [dragging, setDragging] = useState(false)
   const bottom = useRef<HTMLDivElement>(null)
   const scroller = useRef<HTMLDivElement>(null)
@@ -125,32 +70,6 @@ export function ChatPanel({ project, userId, kind = 'internal' }: { project: Pro
     const el = scroller.current
     if (el && el.scrollHeight - el.scrollTop - el.clientHeight < 600) bottom.current?.scrollIntoView({ block: 'end' })
   }
-
-  const addFiles = (list: FileList | File[]) => {
-    const incoming = [...list]
-    const tooBig = incoming.filter((f) => f.size > MAX_MB * 1024 * 1024)
-    const ok = incoming.filter((f) => f.size <= MAX_MB * 1024 * 1024)
-    const room = MAX_FILES - pending.length
-    if (tooBig.length > 0) setNotice(`${tooBig.map((f) => f.name).join(', ')}: ${MAX_MB} MB dan katta`)
-    else if (ok.length > room) setNotice(`Bitta xabarda ko‘pi bilan ${MAX_FILES} ta fayl`)
-    else setNotice(null)
-    setPending((p) => [
-      ...p,
-      ...ok.slice(0, Math.max(0, room)).map((file) => ({
-        key: `${file.name}-${file.size}-${Math.random()}`,
-        file,
-        preview: file.type.startsWith('image/') ? URL.createObjectURL(file) : null,
-      })),
-    ])
-  }
-
-  /** Kichik ko'rinish uchun yaratilgan URL xotiradan tozalanadi. */
-  const dropPending = (keys: Set<string> | 'all') =>
-    setPending((list) => {
-      const removed = keys === 'all' ? list : list.filter((p) => keys.has(p.key))
-      removed.forEach((p) => p.preview && URL.revokeObjectURL(p.preview))
-      return keys === 'all' ? [] : list.filter((p) => !keys.has(p.key))
-    })
 
   const loadOlder = useMutation({
     mutationFn: () => api<ChatPage>(`${base}?before=${messages[0]?.id ?? ''}`),
@@ -202,13 +121,6 @@ export function ChatPanel({ project, userId, kind = 'internal' }: { project: Pro
   const submit = (e: FormEvent) => {
     e.preventDefault()
     if ((body.trim() || pending.length > 0) && !send.isPending) send.mutate()
-  }
-  const onPaste = (e: ClipboardEvent) => {
-    const files = [...e.clipboardData.files]
-    if (files.length > 0) {
-      e.preventDefault()
-      addFiles(files)
-    }
   }
   const onDrop = (e: DragEvent) => {
     e.preventDefault()
@@ -362,35 +274,7 @@ export function ChatPanel({ project, userId, kind = 'internal' }: { project: Pro
             </ul>
           )}
 
-          {pending.length > 0 && (
-            <ul className="mb-2 flex flex-wrap gap-2" aria-label="Biriktirilgan fayllar">
-              {pending.map((p) => (
-                <li key={p.key} className="relative">
-                  {p.preview ? (
-                    <img src={p.preview} alt={p.file.name} className="size-16 rounded-md object-cover ring-1 ring-slate-200" />
-                  ) : (
-                    <span className="flex h-16 w-40 items-center gap-2 rounded-md bg-slate-50 px-2 text-xs ring-1 ring-slate-200">
-                      <span aria-hidden className="text-lg">
-                        📄
-                      </span>
-                      <span className="min-w-0">
-                        <span className="block truncate font-medium">{p.file.name}</span>
-                        <span className="text-slate-500">{fileSize(p.file.size)}</span>
-                      </span>
-                    </span>
-                  )}
-                  <button
-                    type="button"
-                    aria-label={`${p.file.name} ni olib tashlash`}
-                    onClick={() => dropPending(new Set([p.key]))}
-                    className="absolute -right-1.5 -top-1.5 flex size-5 items-center justify-center rounded-full bg-slate-900 text-[11px] text-white"
-                  >
-                    ✕
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
+          <PendingFiles items={pending} onRemove={(key) => dropPending(new Set([key]))} />
 
           <div className="flex items-end gap-2">
             <input

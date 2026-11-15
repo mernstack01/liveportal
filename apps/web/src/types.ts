@@ -225,6 +225,8 @@ export interface IncidentUpdate {
   from: string | null
   to: string | null
   author: Person | null
+  /** Qo'lda yozilgan yangilanishdagi skrinshot va fayllar. */
+  attachments: ChatAttachment[]
   createdAt: string
 }
 

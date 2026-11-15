@@ -2,6 +2,8 @@ import { BadRequestException, ConflictException, Injectable, NotFoundException }
 import type { ProjectContext } from '../auth/auth.types.js';
 import { PrismaService } from '../db/prisma.service.js';
 import { recordEvent } from '../events/outbox.js';
+import { FileLinksService } from '../files/file-links.service.js';
+import { attachmentRows, discardUploads, toAttachment } from '../files/uploads.js';
 import type { IncidentStatus, Prisma } from '../generated/prisma/client.js';
 import type { CreateIncidentDto, UpdateIncidentDto } from './incident.dto.js';
 
@@ -61,7 +63,10 @@ type Change = {
  */
 @Injectable()
 export class IncidentsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly links: FileLinksService,
+  ) {}
 
   /** Ochiqlari oldin: eng og'ir daraja, keyin eng yangisi. */
   async list(project: ProjectContext, status: 'open' | 'resolved' | 'all') {
@@ -83,7 +88,11 @@ export class IncidentsService {
   async get(project: ProjectContext, ref: string) {
     const incident = await this.find(project, ref);
     const [updates, tasks, { key: projectKey }] = await Promise.all([
-      this.prisma.incidentUpdate.findMany({ where: { incidentId: incident.id }, orderBy: { createdAt: 'asc' }, include: { author: person } }),
+      this.prisma.incidentUpdate.findMany({
+        where: { incidentId: incident.id },
+        orderBy: { createdAt: 'asc' },
+        include: { author: person, attachments: { orderBy: { createdAt: 'asc' } } },
+      }),
       this.prisma.task.findMany({
         where: { incidentId: incident.id },
         orderBy: { number: 'asc' },
@@ -115,6 +124,7 @@ export class IncidentsService {
         from: u.from,
         to: u.to,
         author: toPerson(u.author),
+        attachments: u.attachments.map((a) => toAttachment(a, this.links)),
         createdAt: u.createdAt,
       })),
     };
@@ -241,9 +251,21 @@ export class IncidentsService {
   }
 
   /** Xronologiyaga qo'lda yangilanish ("DB qayta ishga tushirildi, kuzatyapmiz"). */
-  async note(project: ProjectContext, actorId: string, ref: string, body: string) {
+  /** Matn va/yoki fayllar (skrinshot, log). Xato bo'lsa, diskka tushgan fayllar o'chiriladi. */
+  async note(project: ProjectContext, actorId: string, ref: string, body: string, files: Express.Multer.File[] = []) {
+    try {
+      return await this.saveNote(project, actorId, ref, body, files);
+    } catch (error) {
+      await discardUploads(files);
+      throw error;
+    }
+  }
+
+  private async saveNote(project: ProjectContext, actorId: string, ref: string, body: string, files: Express.Multer.File[]) {
+    if (!body && files.length === 0) throw new BadRequestException('Matn yoki fayl kerak');
     await this.assertWritable(project);
     const incident = await this.find(project, ref);
+    const attachments = await attachmentRows(files, { workspaceId: project.workspaceId, projectId: project.id, uploaderId: actorId });
     const update = await this.prisma.$transaction(async (tx) => {
       const created = await tx.incidentUpdate.create({
         data: {
@@ -251,8 +273,9 @@ export class IncidentsService {
           authorId: actorId,
           kind: 'note',
           body,
+          attachments: { create: attachments },
         },
-        include: { author: person },
+        include: { author: person, attachments: true },
       });
       await tx.incident.update({
         where: { id: incident.id },
@@ -281,6 +304,7 @@ export class IncidentsService {
       from: null,
       to: null,
       author: toPerson(update.author),
+      attachments: update.attachments.map((a) => toAttachment(a, this.links)),
       createdAt: update.createdAt,
     };
   }

@@ -1,4 +1,3 @@
-import { open, rm } from 'node:fs/promises';
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import type { Permission } from '@liveportal/shared';
 import { z } from 'zod';
@@ -6,25 +5,14 @@ import type { ProjectContext } from '../auth/auth.types.js';
 import { parse } from '../common/zod.js';
 import { PrismaService } from '../db/prisma.service.js';
 import { recordEvent } from '../events/outbox.js';
-import { sniffImage } from '../files/file-sniff.js';
 import { FileLinksService } from '../files/file-links.service.js';
+import { attachmentRows, discardUploads, toAttachment } from '../files/uploads.js';
 import type { Prisma } from '../generated/prisma/client.js';
 import { extractMentions } from '../tasks/mentions.js';
 
 const author = { select: { id: true, name: true, avatarUrl: true, telegramUsername: true } } as const;
 const messageInclude = { author, attachments: { orderBy: { createdAt: 'asc' } } } satisfies Prisma.MessageInclude;
 type MessageRow = Prisma.MessageGetPayload<{ include: typeof messageInclude }>;
-
-/** Birinchi baytlar: rasmmi yoki oddiy fayl. */
-async function head(path: string): Promise<Buffer> {
-  const fd = await open(path, 'r');
-  try {
-    const { buffer, bytesRead } = await fd.read(Buffer.alloc(16), 0, 16, 0);
-    return buffer.subarray(0, bytesRead);
-  } finally {
-    await fd.close();
-  }
-}
 
 const PAGE = 50;
 
@@ -54,14 +42,7 @@ export class ChatService {
       createdAt: m.createdAt,
       editedAt: m.editedAt,
       author: m.author ? { userId: m.author.id, name: m.author.name, avatarUrl: m.author.avatarUrl, telegramUsername: m.author.telegramUsername } : null,
-      attachments: m.attachments.map((a) => ({
-        id: a.id,
-        fileName: a.fileName,
-        kind: a.kind,
-        mimeType: a.mimeType,
-        size: a.size,
-        url: this.links.url(a.id),
-      })),
+      attachments: m.attachments.map((a) => toAttachment(a, this.links)),
     };
   }
 
@@ -98,21 +79,7 @@ export class ChatService {
       if (state.status === 'ARCHIVED') throw new ConflictException('Loyiha arxivda');
       const channel = await this.channel(project, kind);
 
-      const attachments = await Promise.all(
-        files.map(async (f) => {
-          const image = sniffImage(await head(f.path));
-          return {
-            workspaceId: project.workspaceId,
-            projectId: project.id,
-            uploaderId: authorId,
-            fileName: f.originalname.slice(0, 200) || 'fayl',
-            mimeType: image ?? (f.mimetype || 'application/octet-stream').slice(0, 100),
-            kind: image ? 'image' : 'file',
-            size: f.size,
-            storageKey: f.filename,
-          };
-        }),
-      );
+      const attachments = await attachmentRows(files, { workspaceId: project.workspaceId, projectId: project.id, uploaderId: authorId });
 
       // Faqat chatni ko'ra oladigan a'zolar mention qilinadi: mehmonga ichki xabar ketmasligi kerak.
       const names = new Set(extractMentions(body));
@@ -147,7 +114,7 @@ export class ChatService {
       });
       return this.toMessage(message);
     } catch (error) {
-      await Promise.all(files.map((f) => rm(f.path, { force: true })));
+      await discardUploads(files);
       throw error;
     }
   }

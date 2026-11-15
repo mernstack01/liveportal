@@ -97,7 +97,7 @@ Jonli namoyish (demo jamoa, kirish ID'lari, o'chirish buyrug'i): [docs/demo.md](
 | `GET /projects/:projectId/incidents` (`?status=open\|resolved\|all`) | `incident.view`; hal qilinmaganlari oldin, eng og'ir daraja birinchi |
 | `POST /projects/:projectId/incidents` | `incident.manage`; `title`, `description`, `severity` (SEV1–SEV4), `ownerId` (faqat xodim), `startedAt`. Raqam loyiha ichida: INC-1, INC-2… |
 | `GET`/`PATCH /projects/:projectId/incidents/:ref` | ko'rish `incident.view`, o'zgartirish `incident.manage`: holat (Ochiq → Tekshirilmoqda → Kuzatuvda → Hal qilindi), daraja, mas'ul, sabab va yechim. Har o'zgarish xronologiyaga yoziladi. GET insidentdan yaratilgan tasklarni (`tasks`) ham qaytaradi |
-| `POST /projects/:projectId/incidents/:ref/updates` | `incident.manage`; xronologiyaga qo'lda yangilanish |
+| `POST /projects/:projectId/incidents/:ref/updates` | `incident.manage`; xronologiyaga qo'lda yangilanish. JSON yoki multipart: `body` + `files[]` (skrinshot, log; 10 tagacha, har biri `MAX_UPLOAD_MB`). Matnsiz faqat fayl ham bo'ladi |
 | `GET /files/:id?exp&sig` | imzolangan havola (1 soat). Faqat haqiqiy PNG/JPEG/GIF/WEBP brauzerda ochiladi, qolgani yuklab olinadi |
 | `GET /dashboard` | `dashboard.view_all`: hal qilinmagan insidentlar, loyihalar progressi, kechikkan tasklar, odamlar yuklamasi, bu hafta yopilganlar |
 
@@ -118,7 +118,7 @@ Loyihadagi ruxsat = workspace roli + loyiha roli. **Mijoz**: workspace roli `cli
 | Mijoz chatiga xabar | mijoz yozsa — loyihadagi mijozga javob bera oladigan xodimlarga (teamlead); xodim yozsa — loyihadagi mijozlarga |
 | Insident ochildi | loyihada insidentlarni ko'radigan hammaga (mijozga emas); mas'ul darhol tayinlangan bo'lsa, unga "mas'ul qildi" |
 | Insident holati yoki darajasi o'zgardi | o'sha auditoriyaga; hal qilinganda davomiyligi va sabab-yechim bilan. Yangi mas'ulga alohida xabar |
-| Insidentga yangilanish yozildi | mas'ul va xabar berganga |
+| Insidentga yangilanish yozildi | mas'ul va xabar berganga (fayl bo'lsa, "📎 N ta fayl") |
 | Ertalabki xulosa, 09:00 Toshkent | muddati o'tgan / bugun / ertaga taski bor har bir odamga, bitta xabar |
 
 Hech kimga o'zi qilgan ish haqida xabar kelmaydi. Ertalabki ish (`MorningJob`) kuniga bir marta bajariladi (`JobRun`): server 09:00 da o'chiq bo'lsa, yoqilganda o'sha kun uchun bajariladi. Bot: `/today`, `/mytasks`, `/help`. Navbat `Notification` jadvalida: qatorlar event bilan bir tranzaksiyada yoziladi, `NotificationSender` har `NOTIFY_POLL_MS` da yuboradi (429 da kutadi, tarmoq xatosida 5 marta qayta urinadi, bot bloklangan bo'lsa `failed`). "Ochish" tugmasi faqat `WEB_ORIGIN` https bo'lganda chiqadi.

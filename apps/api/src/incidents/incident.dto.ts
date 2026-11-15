@@ -34,8 +34,9 @@ export const updateIncidentSchema = z
   .refine((d) => Object.keys(d).length > 0, 'Hech narsa o‘zgartirilmadi');
 export type UpdateIncidentDto = z.infer<typeof updateIncidentSchema>;
 
+/** Matn bo'sh bo'lishi mumkin, agar fayl biriktirilgan bo'lsa (tekshiruv service'da). */
 export const incidentNoteSchema = z.object({
-  body: z.string().trim().min(1).max(4000),
+  body: z.string().trim().max(4000).default(''),
 });
 
 export const listIncidentsQuery = z.object({

@@ -74,7 +74,7 @@ describe('Insidentlar (e2e)', () => {
     await prisma.notification.deleteMany({ where: { OR: [{ eventId: { in: events.map((e) => e.id) } }, { userId: { in: userIds } }] } });
     await prisma.event.deleteMany({ where: { id: { in: events.map((e) => e.id) } } });
     await prisma.task.deleteMany({ where: { projectId } });
-    await prisma.incident.deleteMany({ where: { projectId } }); // xronologiya cascade bilan
+    await prisma.incident.deleteMany({ where: { projectId } }); // xronologiya va fayl yozuvlari cascade bilan
     await prisma.workflowStatus.deleteMany({ where: { projectId } });
     await prisma.projectMember.deleteMany({ where: { projectId } });
     await prisma.project.deleteMany({ where: { id: projectId } });
@@ -210,6 +210,41 @@ describe('Insidentlar (e2e)', () => {
 
     // Boshqa loyihaning yoki noma'lum insidenti — 400.
     await http().post(`/api/v1/projects/${projectId}/tasks`).set(as('lead')).send({ title: 'X', incidentId: 'yoq' }).expect(400);
+  });
+
+  it('yangilanishga skrinshot va log fayl biriktiriladi; faqat fayl ham bo‘ladi; xabarda fayl soni', async () => {
+    const png = Buffer.from('89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c4890000000d4944415478da63f8ffff3f0005fe02fea7d6a4a10000000049454e44ae426082', 'hex');
+    const res = await http()
+      .post(url('/1/updates'))
+      .set(as('dev2'))
+      .field('body', 'Xato skrinshoti va log')
+      .attach('files', png, 'xato.png')
+      .attach('files', Buffer.from('ERROR 500 at /pay'), 'server.log')
+      .expect(201);
+    expect(res.body.attachments).toEqual([
+      expect.objectContaining({ fileName: 'xato.png', kind: 'image', mimeType: 'image/png' }),
+      expect.objectContaining({ fileName: 'server.log', kind: 'file' }),
+    ]);
+    const image = await http().get(res.body.attachments[0].url).buffer(true).expect(200);
+    expect(image.headers['content-type']).toBe('image/png');
+
+    // Matnsiz, faqat fayl; rasm deb nomlangan HTML — oddiy fayl (XSS himoyasi).
+    const only = await http()
+      .post(url('/1/updates'))
+      .set(as('dev2'))
+      .attach('files', Buffer.from('<html><script>alert(1)</script></html>'), { filename: 'surat.png', contentType: 'image/png' })
+      .expect(201);
+    expect(only.body).toMatchObject({ body: '', attachments: [expect.objectContaining({ kind: 'file' })] });
+    await http().post(url('/1/updates')).set(as('dev2')).field('body', '  ').expect(400);
+    await http().post(url('/1/updates')).set(as('client')).attach('files', png, 'x.png').expect(403);
+
+    const detail = await http().get(url('/1')).set(as('lead')).expect(200);
+    const notes = detail.body.updates.filter((u: { kind: string }) => u.kind === 'note');
+    expect(notes.at(-2).attachments).toHaveLength(2);
+
+    await flush();
+    const text = sentTo().find((s) => s.to === tg.dev && s.text.includes('Xato skrinshoti'))?.text;
+    expect(text).toContain('📎 2 ta fayl');
   });
 
   it('arxivdagi loyihada insident ochib bo‘lmaydi', async () => {

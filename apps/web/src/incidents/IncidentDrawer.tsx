@@ -1,8 +1,10 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { useEffect, useState, type FormEvent, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 import { api, ApiError } from '../api'
 import { CreateTaskDialog } from '../board/CreateTaskDialog'
+import { Attachments, PendingFiles } from '../components/attachments'
+import { usePendingFiles } from '../components/pending-files'
 import { Avatar, Button, ErrorText } from '../components/ui'
 import { formatDateTime, humanError } from '../labels'
 import { useMe } from '../me'
@@ -194,18 +196,29 @@ function IncidentTasks({ incident, project, queryRef }: { incident: IncidentDeta
 function Timeline({ incident, project, canWrite, queryRef }: { incident: IncidentDetail; project: ProjectDetail; canWrite: boolean; queryRef: string }) {
   const queryClient = useQueryClient()
   const [body, setBody] = useState('')
+  const [dragging, setDragging] = useState(false)
+  const files = usePendingFiles()
+  const fileInput = useRef<HTMLInputElement>(null)
   const nameOf = (userId: string | null) => project.members.find((m) => m.userId === userId)?.name ?? 'kimdir'
   const note = useMutation({
-    mutationFn: () => api<IncidentUpdate>(`/projects/${project.id}/incidents/${incident.number}/updates`, { method: 'POST', body: JSON.stringify({ body }) }),
+    mutationFn: () => {
+      // Matn va fayllar birga (multipart).
+      const form = new FormData()
+      form.append('body', body)
+      files.pending.forEach((p) => form.append('files', p.file, p.file.name))
+      return api<IncidentUpdate>(`/projects/${project.id}/incidents/${incident.number}/updates`, { method: 'POST', body: form })
+    },
     onSuccess: (update) => {
       setBody('')
+      files.remove('all')
+      files.setNotice(null)
       queryClient.setQueryData<IncidentDetail>(keys.incident(project.id, queryRef), (old) => (old ? { ...old, updates: [...old.updates, update] } : old))
       void queryClient.invalidateQueries({ queryKey: keys.incidents(project.id) })
     },
   })
   const submit = (e: FormEvent) => {
     e.preventDefault()
-    if (body.trim()) note.mutate()
+    if ((body.trim() || files.pending.length > 0) && !note.isPending) note.mutate()
   }
 
   return (
@@ -219,12 +232,31 @@ function Timeline({ incident, project, canWrite, queryRef }: { incident: Inciden
               <span className="font-medium text-slate-900">{u.author?.name ?? 'Kimdir'}</span> {u.kind !== 'note' && describe(u, nameOf)}
               <span className="ml-2 text-xs text-slate-400">{formatDateTime(u.createdAt)}</span>
             </p>
-            {u.kind === 'note' && <p className="mt-1 whitespace-pre-wrap rounded-md bg-slate-50 px-3 py-2 text-sm text-slate-800">{u.body}</p>}
+            {u.kind === 'note' && u.body && <p className="mt-1 whitespace-pre-wrap rounded-md bg-slate-50 px-3 py-2 text-sm text-slate-800">{u.body}</p>}
+            {u.attachments.length > 0 && (
+              <div className="mt-1.5">
+                <Attachments items={u.attachments} />
+              </div>
+            )}
           </li>
         ))}
       </ol>
       {canWrite && (
-        <form onSubmit={submit} className="space-y-2">
+        <form
+          onSubmit={submit}
+          onDragOver={(e) => {
+            e.preventDefault()
+            setDragging(true)
+          }}
+          onDragLeave={(e) => e.currentTarget === e.target && setDragging(false)}
+          onDrop={(e) => {
+            e.preventDefault()
+            setDragging(false)
+            if (e.dataTransfer.files.length > 0) files.add(e.dataTransfer.files)
+          }}
+          className={`space-y-2 rounded-lg ${dragging ? 'bg-sky-50 ring-2 ring-sky-400' : ''}`}
+        >
+          <PendingFiles items={files.pending} onRemove={(key) => files.remove(new Set([key]))} />
           <textarea
             aria-label="Yangilanish"
             rows={2}
@@ -232,13 +264,34 @@ function Timeline({ incident, project, canWrite, queryRef }: { incident: Inciden
             value={body}
             onChange={(e) => setBody(e.target.value)}
             onKeyDown={(e) => (e.metaKey || e.ctrlKey) && e.key === 'Enter' && submit(e)}
-            placeholder="Nima qilindi, nima topildi? Masalan: serverni qayta ishga tushirdik, kuzatyapmiz"
+            onPaste={files.onPaste}
+            placeholder="Nima qilindi, nima topildi? Skrinshotni Ctrl/⌘+V bilan joylang yoki faylni shu yerga tashlang"
             className="w-full resize-y rounded-md border border-slate-200 p-2.5 text-sm outline-none hover:border-slate-300 focus:border-slate-500"
           />
           <ErrorText error={note.error} />
-          <div className="flex items-center justify-between">
-            <span className="text-xs text-slate-400">Mas’ul va xabar berganga Telegram’da boradi</span>
-            <Button disabled={note.isPending || !body.trim()}>Yozish</Button>
+          {files.notice && <p className="text-xs text-amber-700">{files.notice}</p>}
+          <div className="flex items-center gap-2">
+            <input
+              ref={fileInput}
+              type="file"
+              multiple
+              hidden
+              onChange={(e) => {
+                if (e.target.files) files.add(e.target.files)
+                e.target.value = ''
+              }}
+            />
+            <button
+              type="button"
+              aria-label="Fayl biriktirish"
+              title="Skrinshot, log yoki boshqa fayl (10 tagacha, har biri 20 MB gacha)"
+              onClick={() => fileInput.current?.click()}
+              className="flex size-9 shrink-0 items-center justify-center rounded-md text-lg text-slate-500 hover:bg-slate-100 hover:text-slate-800"
+            >
+              📎
+            </button>
+            <span className="flex-1 text-xs text-slate-400">Mas’ul va xabar berganga Telegram’da boradi</span>
+            <Button disabled={note.isPending || (!body.trim() && files.pending.length === 0)}>{note.isPending ? 'Yuborilmoqda…' : 'Yozish'}</Button>
           </div>
         </form>
       )}

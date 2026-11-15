@@ -36,6 +36,8 @@ export interface IncidentMessageInput {
   /** incident.updated: nima o'zgardi. */
   changes?: { status?: { from: string | null; to: string | null }; severity?: { from: string | null; to: string | null } };
   noteBody?: string;
+  /** Yangilanishga biriktirilgan fayllar soni. */
+  noteFiles?: number;
 }
 
 function excerpt(text: string, max = 300): string {
@@ -93,7 +95,7 @@ export function renderIncidentMessage(input: IncidentMessageInput): RenderedMess
     }
     case 'incident_note':
       lines.push(`📝 ${actor} insidentga yangilanish yozdi`, head, `${severity} · ${status}`);
-      body = quote(input.noteBody);
+      body = quote(input.noteBody) + (input.noteFiles ? `\n📎 ${input.noteFiles} ta fayl` : '');
       break;
   }
 

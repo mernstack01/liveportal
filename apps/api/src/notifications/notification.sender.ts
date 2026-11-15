@@ -162,7 +162,9 @@ export class NotificationSender implements OnApplicationBootstrap, OnApplication
     if (!incident) return null;
     const actor = event.actorId ? await this.prisma.user.findUnique({ where: { id: event.actorId }, select: { name: true } }) : null;
     const payload = (event.payload ?? {}) as { changes?: IncidentMessageInput['changes']; updateId?: string };
-    const note = payload.updateId ? await this.prisma.incidentUpdate.findUnique({ where: { id: payload.updateId }, select: { body: true } }) : null;
+    const note = payload.updateId
+      ? await this.prisma.incidentUpdate.findUnique({ where: { id: payload.updateId }, select: { body: true, _count: { select: { attachments: true } } } })
+      : null;
     return {
       kind,
       actorName: actor?.name ?? null,
@@ -183,6 +185,7 @@ export class NotificationSender implements OnApplicationBootstrap, OnApplication
       },
       changes: payload.changes,
       noteBody: note?.body,
+      noteFiles: note?._count.attachments,
     };
   }
 
