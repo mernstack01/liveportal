@@ -1,8 +1,17 @@
 import { Injectable, OnModuleInit } from '@nestjs/common';
 import { EventBus } from '../events/event-bus.js';
 import type { Event, Prisma } from '../generated/prisma/client.js';
+import type { IncidentKind } from './incident-message.js';
 
-export type NotificationKind = 'claimed' | 'assigned' | 'mentioned' | 'commented' | 'review' | 'added' | 'overdue' | 'digest' | 'chat_mention' | 'client_message';
+/** Insident eventlari payload'i (IncidentsService). */
+interface IncidentPayload {
+  projectId: string;
+  ownerId: string | null;
+  reporterId: string;
+  changes?: { status?: unknown; severity?: unknown; owner?: { from: string | null; to: string | null } };
+}
+
+export type NotificationKind = 'claimed' | 'assigned' | 'mentioned' | 'commented' | 'review' | 'added' | 'overdue' | 'digest' | 'chat_mention' | 'client_message' | IncidentKind;
 
 /** Task eventlari payload'i (TasksService.taskEvent). */
 interface TaskPayload {
@@ -79,12 +88,44 @@ export class NotificationRules implements OnModuleInit {
       return this.enqueue(tx, e, 'client_message', p.notify ?? []);
     });
 
+    // Yangi insident: loyihada insidentlarni ko'radigan hammaga (kam bo'ladi va muhim).
+    this.bus.subscribe('incident.created', 'notify:incident-opened', async (e, tx) => {
+      const p = e.payload as unknown as IncidentPayload;
+      // Mas'ul darhol tayinlangan bo'lsa, unga "mas'ul qildi" xabari (bitta odamga bitta xabar).
+      if (p.ownerId) await this.enqueue(tx, e, 'incident_owner', [p.ownerId]);
+      return this.enqueue(tx, e, 'incident_opened', await this.incidentAudience(tx, p.projectId));
+    });
+
+    // Holat yoki daraja o'zgardi — hammaga; yangi mas'ulga alohida xabar.
+    this.bus.subscribe('incident.updated', 'notify:incident-updated', async (e, tx) => {
+      const p = e.payload as unknown as IncidentPayload;
+      const newOwner = p.changes?.owner?.to;
+      if (newOwner) await this.enqueue(tx, e, 'incident_owner', [newOwner]);
+      if (p.changes?.status || p.changes?.severity) {
+        await this.enqueue(tx, e, 'incident_status', await this.incidentAudience(tx, p.projectId));
+      }
+    });
+
+    // Qo'lda yozilgan yangilanish: mas'ul va xabar berganga.
+    this.bus.subscribe('incident.noted', 'notify:incident-noted', (e, tx) => {
+      const p = e.payload as unknown as IncidentPayload;
+      return this.enqueue(tx, e, 'incident_note', [p.ownerId, p.reporterId]);
+    });
+
     this.bus.subscribe('user.digest', 'notify:digest', (e, tx) => this.enqueue(tx, e, 'digest', [e.entityId]));
 
     this.bus.subscribe('project.member_added', 'notify:added', (e, tx) => {
       const p = e.payload as unknown as { userId: string };
       return this.enqueue(tx, e, 'added', [p.userId]);
     });
+  }
+
+  private async incidentAudience(tx: Prisma.TransactionClient, projectId: string) {
+    const members = await tx.projectMember.findMany({
+      where: { projectId, role: { permissions: { has: 'incident.view' } } },
+      select: { userId: true },
+    });
+    return members.map((m) => m.userId);
   }
 
   private async enqueue(tx: Prisma.TransactionClient, event: Event, kind: NotificationKind, userIds: (string | null | undefined)[]) {

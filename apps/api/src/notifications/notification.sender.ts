@@ -4,6 +4,7 @@ import type { Env } from '../config/env.js';
 import { PrismaService } from '../db/prisma.service.js';
 import { localDay } from '../tasks/due.js';
 import { openTasksFor } from '../tasks/open-tasks.js';
+import { renderIncidentMessage, type IncidentKind, type IncidentMessageInput } from './incident-message.js';
 import { renderMessage, type MessageInput, type RenderedMessage } from './notification-message.js';
 import type { NotificationKind } from './notification-rules.js';
 import { renderDigest } from './task-list-message.js';
@@ -139,11 +140,50 @@ export class NotificationSender implements OnApplicationBootstrap, OnApplication
       const webOrigin = this.config.get('WEB_ORIGIN', { infer: true });
       return renderDigest(tasks, localDay(new Date()), webOrigin, true) ?? 'empty';
     }
+    if (event.entityType === 'incident') {
+      const input = await this.buildIncident(kind as IncidentKind, event);
+      return input ? renderIncidentMessage(input) : null;
+    }
     const input = await this.buildInput(kind, recipientId, event);
     if (!input) return null;
     // Navbatda turgan paytda task yopilgan bo'lsa, "muddati o'tdi" endi kerak emas.
     if (kind === 'overdue' && input.task && ['DONE', 'CANCELED'].includes(input.task.statusCategory)) return 'empty';
     return renderMessage(input);
+  }
+
+  private async buildIncident(
+    kind: IncidentKind,
+    event: { actorId: string | null; entityId: string; payload: unknown },
+  ): Promise<IncidentMessageInput | null> {
+    const incident = await this.prisma.incident.findUnique({
+      where: { id: event.entityId },
+      include: { project: { select: { key: true, name: true } }, owner: { select: { name: true } } },
+    });
+    if (!incident) return null;
+    const actor = event.actorId ? await this.prisma.user.findUnique({ where: { id: event.actorId }, select: { name: true } }) : null;
+    const payload = (event.payload ?? {}) as { changes?: IncidentMessageInput['changes']; updateId?: string };
+    const note = payload.updateId ? await this.prisma.incidentUpdate.findUnique({ where: { id: payload.updateId }, select: { body: true } }) : null;
+    return {
+      kind,
+      actorName: actor?.name ?? null,
+      webOrigin: this.config.get('WEB_ORIGIN', { infer: true }),
+      incident: {
+        number: incident.number,
+        title: incident.title,
+        description: incident.description,
+        severity: incident.severity,
+        status: incident.status,
+        ownerName: incident.owner?.name ?? null,
+        startedAt: incident.startedAt,
+        resolvedAt: incident.resolvedAt,
+        resolution: incident.resolution,
+        projectId: incident.projectId,
+        projectKey: incident.project.key,
+        projectName: incident.project.name,
+      },
+      changes: payload.changes,
+      noteBody: note?.body,
+    };
   }
 
   private async buildInput(

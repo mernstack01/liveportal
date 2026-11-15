@@ -16,6 +16,11 @@ export const EVENT_TYPES = [
   'user.digest',
   'task.commented',
   'task.mentioned',
+  'incident.created',
+  /** Holat, daraja yoki mas'ul o'zgardi (payload.changes). */
+  'incident.updated',
+  /** Xronologiyaga qo'lda yangilanish yozildi. */
+  'incident.noted',
   'message.posted',
   'message.external_received',
 ] as const;

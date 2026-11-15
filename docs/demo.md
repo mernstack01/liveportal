@@ -33,7 +33,8 @@ Loyihalar: **ITL** IT Live sayti, **CRM** Mentor CRM (muddati o'tgan), **TBK** T
 5. Chiqing, Malika (`900000102`) bo'lib kiring → Review'dagi taskni Done'ga sudrang: kartochka qaytadi, "faqat teamlead" xabari chiqadi.
 6. Jasur (`900000103`) → **Mening tasklarim**.
 7. Bobur (`900000105`) → **Mobil ilova** → to'g'ridan-to'g'ri "Mijoz bilan" chat ochiladi, menyuda faqat "Loyihalar". Xabar yozing → Aziz bo'lib kiring, **Mijoz bilan** bo'limida javob bering. Jasur'da bu bo'lim yo'q.
-8. Telegram qismi uchun: `docs/media/liveportal-demo.mp4` ning oxirgi sahnasi yoki taqdimotning Telegram slaydi.
+8. Jasur → **Mobil ilova** → **Insidentlar** → "🚨 Insident ochish" (SEV1). Aziz → **Dashboard** tepasida qizil karta → insidentni oching → "🙋 Men olaman", yangilanish yozing, "Kuzatuvda", "Hal qilindi" (sabab va yechim bilan). Xronologiya o'zi yoziladi.
+9. Telegram qismi uchun: `docs/media/liveportal-demo.mp4` ning oxirgi sahnasi yoki taqdimotning Telegram slaydi.
 
 Demo ma'lumot namoyish davomida o'zgaradi (task Done bo'ladi, izoh qo'shiladi) — bu normal.
 
@@ -47,10 +48,11 @@ begin;
 create temp table d_u as select id from "User" where id like 'demo\_%';
 create temp table d_p as select id from "Project" where key in ('ITL','CRM','TBK','MOB') and id in (select "projectId" from "ProjectMember" where "userId" in (select id from d_u));
 create temp table d_t as select id from "Task" where "projectId" in (select id from d_p);
-create temp table d_e as select id from "Event" where "entityId" in (select id from d_p union select id from d_t union select id from d_u union select m.id from "Message" m join "Channel" c on c.id = m."channelId" where c."projectId" in (select id from d_p));
+create temp table d_e as select id from "Event" where "entityId" in (select id from d_p union select id from d_t union select id from d_u union select id from "Incident" where "projectId" in (select id from d_p) union select m.id from "Message" m join "Channel" c on c.id = m."channelId" where c."projectId" in (select id from d_p));
 delete from "Notification" where "eventId" in (select id from d_e) or "userId" in (select id from d_u);
 delete from "Event" where id in (select id from d_e);
 delete from "Comment" where "taskId" in (select id from d_t);
+delete from "Incident" where "projectId" in (select id from d_p);
 delete from "Message" where "channelId" in (select id from "Channel" where "projectId" in (select id from d_p));
 delete from "Channel" where "projectId" in (select id from d_p);
 delete from "Task" where id in (select id from d_t);

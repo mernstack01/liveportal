@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { api } from './api'
-import type { Dashboard, Member, ProjectDetail, ProjectSummary, RolesResponse, Task, TaskDetail } from './types'
+import type { Dashboard, Incident, IncidentDetail, Member, ProjectDetail, ProjectSummary, RolesResponse, Task, TaskDetail } from './types'
 
 export const keys = {
   projects: (archived: boolean) => ['projects', { archived }] as const,
@@ -9,6 +9,8 @@ export const keys = {
   task: (projectId: string, ref: string) => ['task', projectId, ref] as const,
   myTasks: (all: boolean) => ['my-tasks', { all }] as const,
   workspaceMembers: ['workspace-members'] as const,
+  incidents: (projectId: string) => ['incidents', projectId] as const,
+  incident: (projectId: string, ref: string) => ['incident', projectId, ref] as const,
 }
 
 export const useProjects = (archived: boolean) =>
@@ -47,3 +49,10 @@ export const useDashboard = () =>
   useQuery({ queryKey: ['dashboard'], queryFn: () => api<Dashboard>('/dashboard'), refetchInterval: 60_000 })
 
 export const useRoles = () => useQuery({ queryKey: ['roles'], queryFn: () => api<RolesResponse>('/roles'), staleTime: 60_000 })
+
+export const useIncidents = (projectId: string) =>
+  useQuery({ queryKey: keys.incidents(projectId), queryFn: () => api<Incident[]>(`/projects/${projectId}/incidents`) })
+
+/** `ref` — insident raqami (URL'da `/incidents/3`) yoki id. */
+export const useIncident = (projectId: string, ref: string) =>
+  useQuery({ queryKey: keys.incident(projectId, ref), queryFn: () => api<IncidentDetail>(`/projects/${projectId}/incidents/${ref}`) })

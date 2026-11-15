@@ -9,6 +9,7 @@ import { ProjectPage } from './pages/ProjectPage'
 import { ProjectsPage } from './pages/ProjectsPage'
 import { RolesPage } from './pages/RolesPage'
 import { TeamPage } from './pages/TeamPage'
+import { IncidentDrawer } from './incidents/IncidentDrawer'
 import { TaskDrawer } from './task/TaskDrawer'
 
 const router = createBrowserRouter([
@@ -24,6 +25,12 @@ const router = createBrowserRouter([
       },
       { path: '/projects/:projectId/chat', element: <ProjectPage tab="chat" /> },
       { path: '/projects/:projectId/client-chat', element: <ProjectPage tab="client" /> },
+      {
+        path: '/projects/:projectId/incidents',
+        element: <ProjectPage tab="incidents" />,
+        // Telegram'dagi insident xabaridagi "Ochish" shu manzilga olib keladi.
+        children: [{ path: ':incidentRef', element: <IncidentDrawer /> }],
+      },
       { path: '/my', element: <MyTasksPage /> },
       { path: '/dashboard', element: <DashboardPage /> },
       { path: '/team', element: <TeamPage /> },

@@ -4,6 +4,7 @@ import { formatDateTime, formatDay, PROJECT_STATUS_LABELS } from '../labels'
 import { useMe } from '../me'
 import { useDashboard } from '../queries'
 import type { Dashboard, StatusCategory } from '../types'
+import { incidentDuration, SEVERITY_INFO, STATUS_INFO } from '../incidents/labels'
 import { NotFoundPage } from './NotFoundPage'
 
 /**
@@ -130,6 +131,31 @@ export function DashboardPage() {
         <Tile label="Bu hafta yopildi" value={d.summary.doneThisWeek} />
         <Tile label="Egasiz tasklar" value={d.summary.unassigned} hint="hech kimga berilmagan" />
       </div>
+
+      {/* Hal qilinmagan insidentlar bo'lsa, eng tepada: hozir nima yonayotganini birinchi ko'rish kerak. */}
+      {d.openIncidents.length > 0 && (
+        <section className="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-red-200">
+          <h2 className="flex items-center gap-2 border-b border-red-100 bg-red-50 px-4 py-3 text-sm font-semibold text-red-900">
+            🚨 Hal qilinmagan insidentlar <span className="font-normal text-red-700">{d.openIncidents.length}</span>
+          </h2>
+          <ul className="divide-y divide-slate-100">
+            {d.openIncidents.map((i) => (
+              <li key={i.id}>
+                <Link to={`/projects/${i.project.id}/incidents/${i.number}`} className="flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2.5 hover:bg-slate-50">
+                  <span className={`rounded px-1.5 py-0.5 font-mono text-xs font-semibold ${SEVERITY_INFO[i.severity].badge}`}>{i.severity}</span>
+                  <span className="font-mono text-xs text-slate-500">
+                    {i.project.key} · {i.key}
+                  </span>
+                  <span className="min-w-0 flex-1 basis-40 truncate text-sm font-medium">{i.title}</span>
+                  <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_INFO[i.status].badge}`}>{STATUS_INFO[i.status].label}</span>
+                  <span className="text-xs text-slate-500">{incidentDuration(i.startedAt, null)}</span>
+                  {i.owner ? <Avatar person={i.owner} size="sm" /> : <span className="text-xs font-medium text-amber-700">mas’ulsiz</span>}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       <Section title="Loyihalar" count={d.projects.length}>
         {d.projects.length === 0 ? (

@@ -25,16 +25,19 @@ model User {
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
-  workspaces     WorkspaceMember[]
-  projects       ProjectMember[]
-  taskAssignments TaskAssignee[]
-  reportedTasks  Task[]            @relation("reporter")
-  comments       Comment[]
-  messages       Message[]
-  notifications  Notification[]
-  sessions       Session[]
-  invitesCreated Invite[]          @relation("inviteCreator")
-  invitesUsed    Invite[]          @relation("inviteUser")
+  workspaces        WorkspaceMember[]
+  projects          ProjectMember[]
+  taskAssignments   TaskAssignee[]
+  reportedIncidents Incident[]        @relation("incidentReporter")
+  ownedIncidents    Incident[]        @relation("incidentOwner")
+  incidentUpdates   IncidentUpdate[]
+  reportedTasks     Task[]            @relation("reporter")
+  comments          Comment[]
+  messages          Message[]
+  notifications     Notification[]
+  sessions          Session[]
+  invitesCreated    Invite[]          @relation("inviteCreator")
+  invitesUsed       Invite[]          @relation("inviteUser")
 }
 
 model Workspace {
@@ -125,24 +128,26 @@ model Session {
 // ───────────── Projects & tasks ─────────────
 
 model Project {
-  id           String        @id @default(cuid())
-  workspaceId  String
-  key          String // "LP" -> LP-1, LP-2 ...
-  name         String
-  description  String?
-  status       ProjectStatus @default(ACTIVE)
-  startDate    DateTime?
-  dueDate      DateTime?
-  customFields Json          @default("{}")
-  taskCounter  Int           @default(0)
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
+  id              String        @id @default(cuid())
+  workspaceId     String
+  key             String // "LP" -> LP-1, LP-2 ...
+  name            String
+  description     String?
+  status          ProjectStatus @default(ACTIVE)
+  startDate       DateTime?
+  dueDate         DateTime?
+  customFields    Json          @default("{}")
+  taskCounter     Int           @default(0)
+  incidentCounter Int           @default(0) // INC-1, INC-2 ... loyiha ichida
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
 
   workspace Workspace        @relation(fields: [workspaceId], references: [id])
   members   ProjectMember[]
   statuses  WorkflowStatus[]
   tasks     Task[]
   channels  Channel[]
+  incidents Incident[]
 
   @@unique([workspaceId, key])
 }
@@ -249,6 +254,66 @@ model Comment {
 
   task   Task @relation(fields: [taskId], references: [id])
   author User @relation(fields: [authorId], references: [id])
+}
+
+// ───────────── Incidents ─────────────
+
+/// Loyihada nosozlik (sayt ishlamay qoldi, to'lov o'tmayapti...). Task emas: hozir yonayotgan muammo,
+/// holati va xronologiyasi (timeline) bilan. Hal qilingach "sabab va yechim" yoziladi.
+model Incident {
+  id          String           @id @default(cuid())
+  projectId   String
+  number      Int // INC-<number>
+  title       String
+  description String?
+  severity    IncidentSeverity @default(SEV3)
+  status      IncidentStatus   @default(OPEN)
+  reporterId  String
+  ownerId     String? // mas'ul (incident commander)
+  startedAt   DateTime         @default(now()) // muammo qachon boshlangan
+  resolvedAt  DateTime?
+  resolution  String? // sabab va yechim (postmortem qisqa)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  project  Project          @relation(fields: [projectId], references: [id])
+  reporter User             @relation("incidentReporter", fields: [reporterId], references: [id])
+  owner    User?            @relation("incidentOwner", fields: [ownerId], references: [id])
+  updates  IncidentUpdate[]
+
+  @@unique([projectId, number])
+  @@index([projectId, status])
+}
+
+enum IncidentSeverity {
+  SEV1 // kritik: hamma ishlamayapti
+  SEV2 // jiddiy: asosiy funksiya buzilgan
+  SEV3 // o'rtacha: qisman, aylanib o'tish yo'li bor
+  SEV4 // kichik
+}
+
+enum IncidentStatus {
+  OPEN // yangi, hali hech kim olmagan
+  INVESTIGATING // tekshirilmoqda
+  MONITORING // tuzatildi, kuzatilmoqda
+  RESOLVED
+}
+
+/// Insident xronologiyasi: qo'lda yozilgan yangilanish yoki avtomatik yozuv (holat, daraja, mas'ul o'zgardi).
+model IncidentUpdate {
+  id         String   @id @default(cuid())
+  incidentId String
+  authorId   String
+  kind       String // 'created' | 'note' | 'status' | 'severity' | 'owner'
+  body       String   @default("")
+  from       String?
+  to         String?
+  createdAt  DateTime @default(now())
+
+  incident Incident @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+  author   User     @relation(fields: [authorId], references: [id])
+
+  @@index([incidentId, createdAt])
 }
 
 // ───────────── Communication ─────────────

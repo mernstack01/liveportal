@@ -25,6 +25,10 @@ export const PERMISSIONS = [
   'task.assign',
   'task.close',
   'task.comment',
+  /** Insidentlarni ko'rish. */
+  'incident.view',
+  /** Insident ochish, holatini, darajasini, mas'ulini o'zgartirish, yangilanish yozish. */
+  'incident.manage',
   /** Ichki (faqat xodimlar) chat: mehmon ko'rmaydi. */
   'message.internal.read',
   'message.internal.write',
@@ -52,6 +56,8 @@ export const PROJECT_PERMISSIONS: readonly { key: Permission; label: string; gro
   { key: 'task.assign', label: 'Task berish (bajaruvchi tayinlash)', group: 'Tasklar' },
   { key: 'task.close', label: 'Taskni yopish (Done)', group: 'Tasklar' },
   { key: 'task.comment', label: 'Izoh yozish', group: 'Tasklar' },
+  { key: 'incident.view', label: 'Insidentlarni ko‘rish', group: 'Insidentlar' },
+  { key: 'incident.manage', label: 'Insident ochish va boshqarish', group: 'Insidentlar' },
   { key: 'message.internal.read', label: 'Ichki chatni o‘qish', group: 'Chat' },
   { key: 'message.internal.write', label: 'Ichki chatga yozish', group: 'Chat' },
   { key: 'message.external.read', label: 'Mijoz chatini o‘qish', group: 'Chat' },
@@ -86,6 +92,8 @@ export const SYSTEM_ROLES: readonly SystemRole[] = [
       'task.assign',
       'task.close',
       'task.comment',
+      'incident.view',
+      'incident.manage',
       'message.internal.read',
       'message.internal.write',
       'message.external.read',
@@ -97,7 +105,7 @@ export const SYSTEM_ROLES: readonly SystemRole[] = [
     name: 'developer',
     title: 'Dasturchi',
     scope: 'PROJECT',
-    permissions: ['task.view', 'task.create', 'task.update', 'task.assign', 'task.comment', 'message.internal.read', 'message.internal.write'],
+    permissions: ['task.view', 'task.create', 'task.update', 'task.assign', 'task.comment', 'incident.view', 'incident.manage', 'message.internal.read', 'message.internal.write'],
   },
   {
     // Nomi tarixan 'guest'; interfeysda "Mijoz".

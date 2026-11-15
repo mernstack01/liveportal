@@ -42,6 +42,8 @@ export interface ProjectDetail extends Omit<ProjectSummary, 'memberCount'> {
   statuses: WorkflowStatus[]
   members: Member[]
   myPermissions: string[]
+  /** Hal qilinmagan insidentlar soni; insidentlarni ko'ra olmaydiganda null. */
+  openIncidents: number | null
 }
 
 export interface Task {
@@ -83,6 +85,18 @@ export interface DashboardPerson {
 }
 
 export interface Dashboard {
+  /** Hal qilinmagan insidentlar, eng og'iri birinchi. */
+  openIncidents: {
+    id: string
+    number: number
+    key: string
+    title: string
+    severity: IncidentSeverity
+    status: IncidentStatus
+    startedAt: string
+    project: { id: string; key: string; name: string }
+    owner: DashboardPerson | null
+  }[]
   today: string
   weekStart: string
   summary: { activeProjects: number; openTasks: number; inReview: number; overdue: number; doneThisWeek: number; unassigned: number }
@@ -160,4 +174,40 @@ export interface ChatPage {
   canWrite: boolean
   hasMore: boolean
   messages: ChatMessage[]
+}
+
+export type IncidentSeverity = 'SEV1' | 'SEV2' | 'SEV3' | 'SEV4'
+export type IncidentStatus = 'OPEN' | 'INVESTIGATING' | 'MONITORING' | 'RESOLVED'
+
+export interface Incident {
+  id: string
+  number: number
+  key: string
+  projectId: string
+  title: string
+  description: string | null
+  severity: IncidentSeverity
+  status: IncidentStatus
+  reporter: Person | null
+  owner: Person | null
+  startedAt: string
+  resolvedAt: string | null
+  resolution: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+export interface IncidentUpdate {
+  id: string
+  /** 'created' | 'note' | 'status' | 'severity' | 'owner' */
+  kind: string
+  body: string
+  from: string | null
+  to: string | null
+  author: Person | null
+  createdAt: string
+}
+
+export interface IncidentDetail extends Incident {
+  updates: IncidentUpdate[]
 }

@@ -4,6 +4,7 @@ import { Link, Navigate, NavLink, Outlet, useParams } from 'react-router'
 import { api, ApiError } from '../api'
 import { Board } from '../board/Board'
 import { ChatPanel } from '../chat/ChatPanel'
+import { IncidentsPanel } from '../incidents/IncidentsPanel'
 import { MembersDialog } from '../components/MembersDialog'
 import { Avatar, Badge, ErrorText, Spinner } from '../components/ui'
 import { formatDay, PROJECT_STATUS_LABELS, PROJECT_STATUS_STYLES } from '../labels'
@@ -51,7 +52,7 @@ function StatusControl({ project }: { project: ProjectDetail }) {
   )
 }
 
-type ProjectTab = 'board' | 'chat' | 'client'
+type ProjectTab = 'board' | 'incidents' | 'chat' | 'client'
 
 export function ProjectPage({ tab = 'board' }: { tab?: ProjectTab }) {
   const { projectId = '' } = useParams()
@@ -74,6 +75,7 @@ export function ProjectPage({ tab = 'board' }: { tab?: ProjectTab }) {
   // Bo'limlar ruxsatga qarab: mijoz faqat "Mijoz bilan" chatni ko'radi.
   const tabs = [
     { id: 'board' as const, to: `/projects/${p.id}`, label: 'Board', allowed: can('task.view') },
+    { id: 'incidents' as const, to: `/projects/${p.id}/incidents`, label: 'Insidentlar', allowed: can('incident.view'), badge: p.openIncidents ?? 0 },
     { id: 'chat' as const, to: `/projects/${p.id}/chat`, label: 'Jamoa chati', allowed: can('message.internal.read') },
     { id: 'client' as const, to: `/projects/${p.id}/client-chat`, label: 'Mijoz bilan', allowed: can('message.external.read') },
   ].filter((t) => t.allowed)
@@ -126,12 +128,19 @@ export function ProjectPage({ tab = 'board' }: { tab?: ProjectTab }) {
               className={`rounded-md px-3 py-1.5 text-sm font-medium ${t.id === tab ? 'bg-white text-slate-900 shadow-sm ring-1 ring-slate-200' : 'text-slate-500 hover:text-slate-900'}`}
             >
               {t.label}
+              {'badge' in t && (t.badge ?? 0) > 0 && (
+                <span className="ml-1.5 rounded-full bg-red-600 px-1.5 py-0.5 text-[11px] font-semibold text-white" aria-label={`${t.badge} ta hal qilinmagan`}>
+                  {t.badge}
+                </span>
+              )}
             </NavLink>
           ))}
         </nav>
       )}
       {tab === 'board' ? (
         <Board project={p} userId={me.id} />
+      ) : tab === 'incidents' ? (
+        <IncidentsPanel project={p} userId={me.id} />
       ) : (
         <div className="px-4">
           <ChatPanel key={tab} project={p} userId={me.id} kind={tab === 'client' ? 'client' : 'internal'} />

@@ -53,8 +53,13 @@ export class ProjectsService {
 
   async get(project: ProjectContext) {
     const p = await this.repo.findDetail(project.id);
+    // Hal qilinmagan insidentlar soni (bo'lim yonidagi belgi uchun); ko'ra olmaydiganga — null.
+    const openIncidents = project.permissions.includes('incident.view')
+      ? await this.repo.prisma.incident.count({ where: { projectId: project.id, status: { not: 'RESOLVED' } } })
+      : null;
     return {
       ...summary(p),
+      openIncidents,
       statuses: p.statuses,
       members: p.members.map(toMember),
       myRole: project.role,

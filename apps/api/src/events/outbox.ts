@@ -5,7 +5,7 @@ export interface DomainEvent {
   workspaceId: string;
   type: EventType;
   actorId: string | null;
-  entityType: 'project' | 'task' | 'message' | 'user';
+  entityType: 'project' | 'task' | 'message' | 'user' | 'incident';
   entityId: string;
   payload: Prisma.InputJsonObject;
 }
