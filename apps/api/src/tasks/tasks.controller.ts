@@ -28,6 +28,13 @@ export class TasksController {
     return this.tasks.get(project, ref);
   }
 
+  /** Tarix: kim, qachon, nimani o'zgartirdi. */
+  @Get(':taskRef/history')
+  @RequireProjectAccess('task.view')
+  history(@Param('taskRef') ref: string, @CurrentProject() project: ProjectContext) {
+    return this.tasks.history(project, ref);
+  }
+
   /** Ruxsatlar maydon bo'yicha service'da tekshiriladi: task.update, task.assign, task.close. */
   @Patch(':taskRef')
   @RequireProjectAccess('task.view')

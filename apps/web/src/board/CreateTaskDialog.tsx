@@ -2,12 +2,13 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useState, type FormEvent } from 'react'
 import { api } from '../api'
 import { Avatar, Button, ErrorText, inputClass, Modal } from '../components/ui'
-import { PRIORITY_LABELS, PRIORITY_STYLES, todayStr } from '../labels'
+import { PRIORITY_LABELS, PRIORITY_STYLES, TASK_TYPES, todayStr } from '../labels'
 import { keys } from '../queries'
 import { useRoleTitle } from '../roles'
-import type { Priority, ProjectDetail, StatusCategory, Task } from '../types'
+import type { Priority, ProjectDetail, StatusCategory, Task, TaskType } from '../types'
 
 const PRIORITIES = Object.keys(PRIORITY_LABELS) as Priority[]
+const TYPES = Object.keys(TASK_TYPES) as TaskType[]
 const CLOSED: StatusCategory[] = ['DONE', 'CANCELED']
 
 /**
@@ -47,6 +48,8 @@ export function CreateTaskDialog({
   const [dueDate, setDueDate] = useState('')
   const [dueTime, setDueTime] = useState('')
   const [priority, setPriority] = useState<Priority>(incident?.priority ?? 'MEDIUM')
+  // Insidentdan kelgan ish odatda xatoni tuzatish.
+  const [type, setType] = useState<TaskType>(incident ? 'BUG' : 'TASK')
   const [status, setStatus] = useState(statusId ?? openStatuses[0]?.id ?? '')
 
   const create = useMutation({
@@ -60,6 +63,7 @@ export function CreateTaskDialog({
           dueDate: dueDate || undefined,
           dueTime: dueDate && dueTime ? dueTime : undefined,
           priority,
+          type,
           statusId: status || undefined,
           incidentId: incident?.id,
         }),
@@ -144,6 +148,24 @@ export function CreateTaskDialog({
           </label>
         </div>
         {dueDate && dueTime && <p className="-mt-2 text-xs text-slate-500">Soat o‘tishi bilan mas’ullar, muallif va teamlead’ga Telegram’da xabar boradi.</p>}
+
+        <fieldset className="space-y-2">
+          <legend className="text-sm font-medium">Tur</legend>
+          <div className="flex flex-wrap gap-2">
+            {TYPES.map((t) => (
+              <button
+                key={t}
+                type="button"
+                aria-pressed={type === t}
+                onClick={() => setType(t)}
+                className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium ring-1 ${type === t ? 'bg-slate-900 text-white ring-slate-900' : 'bg-white text-slate-600 ring-slate-200 hover:ring-slate-400'}`}
+              >
+                <span className={`flex size-4 items-center justify-center rounded text-[10px] ${TASK_TYPES[t].style}`}>{TASK_TYPES[t].icon}</span>
+                {TASK_TYPES[t].label}
+              </button>
+            ))}
+          </div>
+        </fieldset>
 
         <fieldset className="space-y-2">
           <legend className="text-sm font-medium">Prioritet</legend>

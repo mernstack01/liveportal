@@ -54,7 +54,6 @@ export function Comments({
 
   return (
     <section className="space-y-3">
-      <h3 className="text-sm font-semibold text-slate-900">Izohlar {task.comments.length > 0 && <span className="font-normal text-slate-500">{task.comments.length}</span>}</h3>
       {task.comments.length === 0 && <p className="text-sm text-slate-500">Hali izoh yo‘q.</p>}
       <ul className="space-y-3">
         {task.comments.map((c) => (

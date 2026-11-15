@@ -13,16 +13,36 @@ import {
 } from '@dnd-kit/core'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useMemo, useState } from 'react'
-import { useNavigate } from 'react-router'
+import { useNavigate, useSearchParams } from 'react-router'
 import { api } from '../api'
 import { Avatar, Badge, Button, ErrorText } from '../components/ui'
 import { CreateTaskDialog } from './CreateTaskDialog'
-import { formatDue, humanError, isOverdue, PRIORITY_LABELS, PRIORITY_STYLES } from '../labels'
+import { formatDue, humanError, isOverdue, PRIORITY_LABELS, PRIORITY_STYLES, TASK_TYPES } from '../labels'
 import { keys, useTasks } from '../queries'
-import type { Priority, ProjectDetail, StatusCategory, Task, WorkflowStatus } from '../types'
+import type { Priority, ProjectDetail, StatusCategory, Task, TaskType, WorkflowStatus } from '../types'
 
 const CLOSED: StatusCategory[] = ['DONE', 'CANCELED']
 const PRIORITY_RANK: Record<Priority, number> = { URGENT: 0, HIGH: 1, MEDIUM: 2, LOW: 3 }
+
+/** Board filtrlari URL'da: havolani yuborsa, hamkasb ham aynan shu ko'rinishni ochadi. */
+interface Filters {
+  q: string
+  type: TaskType | ''
+  priority: Priority | ''
+  /** '' — hammasi, 'me' — menga, 'none' — egasiz, yoki userId. */
+  who: string
+}
+const FILTER_KEYS = ['q', 'type', 'priority', 'who'] as const
+
+function matches(t: Task, f: Filters, userId: string): boolean {
+  const q = f.q.trim().toLowerCase()
+  if (q && !t.title.toLowerCase().includes(q) && !t.key.toLowerCase().includes(q)) return false
+  if (f.type && t.type !== f.type) return false
+  if (f.priority && t.priority !== f.priority) return false
+  if (f.who === 'none') return t.assignees.length === 0
+  const who = f.who === 'me' ? userId : f.who
+  return !who || t.assignees.some((a) => a.userId === who)
+}
 
 function byPriority(a: Task, b: Task) {
   return PRIORITY_RANK[a.priority] - PRIORITY_RANK[b.priority] || a.number - b.number
@@ -37,6 +57,9 @@ function TaskCard({ task, overlay = false }: { task: Task; overlay?: boolean }) 
     >
       <div className="flex items-center justify-between gap-2">
         <span className="flex items-center gap-1.5">
+          <span className={`flex size-4 items-center justify-center rounded text-[10px] ${TASK_TYPES[task.type].style}`} title={TASK_TYPES[task.type].label}>
+            {TASK_TYPES[task.type].icon}
+          </span>
           <span className="font-mono text-[11px] font-medium text-slate-500">{task.key}</span>
           {task.incident && (
             <span className="rounded bg-red-50 px-1 font-mono text-[10px] font-medium text-red-700" title={`Insidentdan: ${task.incident.title}`}>
@@ -49,7 +72,17 @@ function TaskCard({ task, overlay = false }: { task: Task; overlay?: boolean }) 
       <p className={`text-sm leading-snug text-slate-900 ${closed ? 'line-through decoration-slate-400' : ''}`}>{task.title}</p>
       {(task.dueDate || task.assignees.length > 0 || !closed) && (
         <div className="flex items-center justify-between gap-2">
-          <span className={`text-xs ${late ? 'font-medium text-red-600' : 'text-slate-500'}`}>{task.dueDate ? formatDue(task.dueDate, task.dueTime) : ''}</span>
+          <span className="flex items-center gap-2">
+            <span className={`text-xs ${late ? 'font-medium text-red-600' : 'text-slate-500'}`}>{task.dueDate ? formatDue(task.dueDate, task.dueTime) : ''}</span>
+            {task.subtaskCount.total > 0 && (
+              <span
+                className={`text-xs ${task.subtaskCount.done === task.subtaskCount.total ? 'text-emerald-600' : 'text-slate-500'}`}
+                title="Kichik vazifalar: bajarilgan / jami"
+              >
+                ☑ {task.subtaskCount.done}/{task.subtaskCount.total}
+              </span>
+            )}
+          </span>
           {task.assignees.length > 0 ? (
             <span className="flex -space-x-1.5" title={task.assignees.map((a) => a.name).join(', ')}>
               {task.assignees.slice(0, 3).map((a) => (
@@ -139,7 +172,25 @@ function Column({
 export function Board({ project, userId }: { project: ProjectDetail; userId: string }) {
   const queryClient = useQueryClient()
   const tasks = useTasks(project.id)
-  const [onlyMine, setOnlyMine] = useState(false)
+  const [params, setParams] = useSearchParams()
+  const filters: Filters = {
+    q: params.get('q') ?? '',
+    type: (params.get('type') ?? '') as Filters['type'],
+    priority: (params.get('priority') ?? '') as Filters['priority'],
+    who: params.get('who') ?? '',
+  }
+  const filtering = FILTER_KEYS.some((k) => filters[k])
+  const setFilter = (key: keyof Filters, value: string) =>
+    setParams(
+      (prev) => {
+        const next = new URLSearchParams(prev)
+        if (value) next.set(key, value)
+        else next.delete(key)
+        return next
+      },
+      { replace: true },
+    )
+  const clearFilters = () => setParams({}, { replace: true })
   const [activeId, setActiveId] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
   /** Yangi task oynasi: qaysi ustunga (undefined — yopiq). */
@@ -162,9 +213,12 @@ export function Board({ project, userId }: { project: ProjectDetail; userId: str
   }, [notice])
 
   const columns = useMemo(() => {
-    const visible = (tasks.data ?? []).filter((t) => !onlyMine || t.assignees.some((a) => a.userId === userId))
+    const visible = (tasks.data ?? []).filter((t) => matches(t, filters, userId))
     return project.statuses.map((s) => ({ status: s, tasks: visible.filter((t) => t.status.id === s.id).sort(byPriority) }))
-  }, [tasks.data, project.statuses, onlyMine, userId])
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- filtrlar URL'dan, qatorlar orqali kuzatiladi
+  }, [tasks.data, project.statuses, filters.q, filters.type, filters.priority, filters.who, userId])
+  const shown = columns.reduce((n, c) => n + c.tasks.length, 0)
+  const selectClass = 'rounded-md border border-slate-200 bg-white px-2 py-1.5 text-sm text-slate-700 outline-none hover:border-slate-300 focus:border-slate-500'
 
   const move = useMutation({
     mutationFn: ({ task, to }: { task: Task; to: WorkflowStatus }) =>
@@ -208,10 +262,47 @@ export function Board({ project, userId }: { project: ProjectDetail; userId: str
             + Yangi task
           </Button>
         )}
-        <label className="flex items-center gap-2 text-sm text-slate-600">
-          <input type="checkbox" checked={onlyMine} onChange={(e) => setOnlyMine(e.target.checked)} className="size-4 rounded border-slate-300" />
-          Faqat menga berilganlar
-        </label>
+        <input
+          type="search"
+          aria-label="Qidirish"
+          value={filters.q}
+          onChange={(e) => setFilter('q', e.target.value)}
+          placeholder={`Qidirish: nom yoki ${project.key}-12`}
+          className={`${selectClass} w-full sm:w-56`}
+        />
+        <select aria-label="Mas’ul" value={filters.who} onChange={(e) => setFilter('who', e.target.value)} className={selectClass}>
+          <option value="">Hamma mas’ullar</option>
+          <option value="me">Menga berilganlar</option>
+          <option value="none">Egasiz</option>
+          {project.members
+            .filter((m) => !m.isClient && m.userId !== userId)
+            .map((m) => (
+              <option key={m.userId} value={m.userId}>
+                {m.name}
+              </option>
+            ))}
+        </select>
+        <select aria-label="Tur" value={filters.type} onChange={(e) => setFilter('type', e.target.value)} className={selectClass}>
+          <option value="">Barcha turlar</option>
+          {(Object.keys(TASK_TYPES) as TaskType[]).map((t) => (
+            <option key={t} value={t}>
+              {TASK_TYPES[t].icon} {TASK_TYPES[t].label}
+            </option>
+          ))}
+        </select>
+        <select aria-label="Prioritet" value={filters.priority} onChange={(e) => setFilter('priority', e.target.value)} className={selectClass}>
+          <option value="">Har qanday prioritet</option>
+          {(Object.keys(PRIORITY_LABELS) as Priority[]).map((p) => (
+            <option key={p} value={p}>
+              {PRIORITY_LABELS[p]}
+            </option>
+          ))}
+        </select>
+        {filtering && (
+          <button onClick={clearFilters} className="text-sm text-slate-500 underline-offset-2 hover:text-slate-900 hover:underline">
+            Tozalash · {shown} ta task
+          </button>
+        )}
         {tasks.isFetching && !tasks.isPending && <span className="text-xs text-slate-400">yangilanmoqda…</span>}
         {archived && <span className="text-sm text-amber-700">Loyiha arxivda: o‘zgartirib bo‘lmaydi.</span>}
       </div>

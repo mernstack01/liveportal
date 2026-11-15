@@ -1,4 +1,4 @@
-import type { Priority, ProjectStatus } from './types'
+import type { Priority, ProjectStatus, TaskType } from './types'
 
 export const ROLE_LABELS: Record<string, string> = {
   owner: 'Rahbar',
@@ -33,6 +33,13 @@ export const PRIORITY_LABELS: Record<Priority, string> = {
   MEDIUM: 'O‘rta',
   HIGH: 'Yuqori',
   URGENT: 'Shoshilinch',
+}
+
+/** Jira'dagidek task turlari. */
+export const TASK_TYPES: Record<TaskType, { label: string; icon: string; style: string }> = {
+  TASK: { label: 'Task', icon: '✔', style: 'bg-sky-100 text-sky-700' },
+  BUG: { label: 'Xato', icon: '🐞', style: 'bg-red-100 text-red-700' },
+  FEATURE: { label: 'Yangi funksiya', icon: '★', style: 'bg-emerald-100 text-emerald-700' },
 }
 
 export const PRIORITY_STYLES: Record<Priority, string> = {

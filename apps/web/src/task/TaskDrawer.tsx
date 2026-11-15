@@ -3,14 +3,17 @@ import { useEffect, useState, type ReactNode } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 import { api, ApiError } from '../api'
 import { Avatar, Button, ErrorText } from '../components/ui'
-import { formatDateTime, humanError, isOverdue, PRIORITY_LABELS } from '../labels'
+import { formatDateTime, humanError, isOverdue, PRIORITY_LABELS, TASK_TYPES } from '../labels'
 import { useMe } from '../me'
 import { keys, useProject, useTask } from '../queries'
-import type { Priority, ProjectDetail, StatusCategory, TaskDetail } from '../types'
+import type { Priority, ProjectDetail, StatusCategory, TaskDetail, TaskType } from '../types'
 import { Comments } from './Comments'
+import { History } from './History'
+import { Subtasks } from './Subtasks'
 
 const CLOSED: StatusCategory[] = ['DONE', 'CANCELED']
 const PRIORITIES = Object.keys(PRIORITY_LABELS) as Priority[]
+const TYPES = Object.keys(TASK_TYPES) as TaskType[]
 const fieldClass =
   'w-full rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-sm outline-none hover:border-slate-300 focus:border-slate-500 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-500'
 
@@ -18,6 +21,7 @@ type Patch = Partial<{
   title: string
   description: string | null
   priority: Priority
+  type: TaskType
   dueDate: string | null
   dueTime: string | null
   assigneeIds: string[]
@@ -100,10 +104,14 @@ function TaskBody({ task, project, queryRef }: { task: TaskDetail; project: Proj
       queryClient.setQueryData(keys.task(project.id, queryRef), updated)
       void queryClient.invalidateQueries({ queryKey: keys.tasks(project.id) })
       void queryClient.invalidateQueries({ queryKey: ['my-tasks'] })
+      void queryClient.invalidateQueries({ queryKey: ['task-history', project.id, task.id] })
+      // Kichik vazifa o'zgarsa, ota taskdagi progress ham yangilanadi.
+      if (task.parent) void queryClient.invalidateQueries({ queryKey: ['task', project.id] })
     },
     onError: (e) => setError(humanError(e)),
   })
   const save = (patch: Patch) => update.mutate(patch)
+  const [tab, setTab] = useState<'comments' | 'history'>('comments')
 
   /** "Men olaman" / "Taskdan chiqish" — o'zini mas'ullarga qo'shish (task.update yetarli). */
   const claim = useMutation({
@@ -131,6 +139,14 @@ function TaskBody({ task, project, queryRef }: { task: TaskDetail; project: Proj
       </div>
 
       <div className="space-y-2.5">
+        {task.parent && (
+          <Row label="Ota task">
+            <Link to={`/projects/${project.id}/tasks/${task.parent.number}`} className="flex min-w-0 items-center gap-2 text-sm text-slate-700 hover:underline">
+              <span className="shrink-0 font-mono text-xs text-slate-500">↑ {task.parent.key}</span>
+              <span className="truncate">{task.parent.title}</span>
+            </Link>
+          </Row>
+        )}
         <Row label="Holat">
           <select
             aria-label="Holat"
@@ -200,6 +216,15 @@ function TaskBody({ task, project, queryRef }: { task: TaskDetail; project: Proj
             ))}
           </select>
         </Row>
+        <Row label="Tur">
+          <select aria-label="Tur" value={task.type} disabled={!can('task.update')} onChange={(e) => save({ type: e.target.value as TaskType })} className={fieldClass}>
+            {TYPES.map((t) => (
+              <option key={t} value={t}>
+                {TASK_TYPES[t].icon} {TASK_TYPES[t].label}
+              </option>
+            ))}
+          </select>
+        </Row>
         <Row label="Muddat">
           <div className="flex items-center gap-2">
             <input
@@ -258,7 +283,34 @@ function TaskBody({ task, project, queryRef }: { task: TaskDetail; project: Proj
         )}
       </section>
 
-      <Comments task={task} members={project.members} queryRef={queryRef} canComment={can('task.comment')} />
+      {/* Kichik vazifalar faqat bir daraja: kichik vazifaning o'zida bo'lim yo'q */}
+      {!task.parent && <Subtasks task={task} project={project} queryRef={queryRef} canCreate={can('task.create')} canUpdate={can('task.update')} />}
+
+      <div className="space-y-3">
+        <div className="flex gap-1 border-b border-slate-100" role="tablist">
+          {(
+            [
+              ['comments', `Izohlar${task.comments.length ? ` ${task.comments.length}` : ''}`],
+              ['history', 'Tarix'],
+            ] as const
+          ).map(([id, label]) => (
+            <button
+              key={id}
+              role="tab"
+              aria-selected={tab === id}
+              onClick={() => setTab(id)}
+              className={`-mb-px border-b-2 px-2 pb-2 text-sm font-semibold ${tab === id ? 'border-slate-900 text-slate-900' : 'border-transparent text-slate-500 hover:text-slate-800'}`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        {tab === 'comments' ? (
+          <Comments task={task} members={project.members} queryRef={queryRef} canComment={can('task.comment')} />
+        ) : (
+          <History projectId={project.id} taskId={task.id} />
+        )}
+      </div>
     </div>
   )
 }

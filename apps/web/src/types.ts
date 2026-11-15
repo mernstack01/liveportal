@@ -1,5 +1,6 @@
 export type ProjectStatus = 'PLANNING' | 'ACTIVE' | 'ON_HOLD' | 'COMPLETED' | 'ARCHIVED'
 export type Priority = 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT'
+export type TaskType = 'TASK' | 'BUG' | 'FEATURE'
 export type StatusCategory = 'TODO' | 'IN_PROGRESS' | 'REVIEW' | 'DONE' | 'CANCELED'
 
 export interface Person {
@@ -64,6 +65,11 @@ export interface Task {
   reporter: Person | null
   /** Insidentdan yaratilgan bo'lsa. */
   incident: { id: string; number: number; key: string; title: string; status: IncidentStatus; severity: IncidentSeverity } | null
+  type: TaskType
+  /** Kichik vazifa bo'lsa — ota task. */
+  parent: { id: string; number: number; key: string; title: string } | null
+  /** Kichik vazifalar: jami va yopilgani. */
+  subtaskCount: { total: number; done: number }
   createdAt: string
   updatedAt: string
 }
@@ -78,7 +84,19 @@ export interface Comment {
 
 export interface TaskDetail extends Task {
   comments: Comment[]
+  subtasks: Task[]
 }
+
+/** Task tarixidagi bitta yozuv. */
+export type TaskHistoryEntry = { id: string; at: string; actor: { userId: string; name: string } | null } & (
+  | { kind: 'created'; status: string | null }
+  | { kind: 'subtask'; key: string; title: string }
+  | { kind: 'status'; from: string | null; to: string | null }
+  | { kind: 'assignees'; added: string[]; removed: string[]; claimed: boolean; left: boolean }
+  | { kind: 'fields'; changes: { field: string; from?: string | null; to?: string | null }[] }
+  | { kind: 'comment' }
+  | { kind: 'overdue' }
+)
 
 export interface DashboardPerson {
   userId: string

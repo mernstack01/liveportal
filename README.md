@@ -83,10 +83,11 @@ Jonli namoyish (demo jamoa, kirish ID'lari, o'chirish buyrug'i): [docs/demo.md](
 | `POST /projects/:projectId/members` | `project.member.manage`; o'zidan yuqori rol berib bo'lmaydi |
 | `PATCH`/`DELETE /projects/:projectId/members/:userId` | `project.member.manage`; o'zini o'zgartirib bo'lmaydi |
 | `GET /workspace/members` | `team.view` (xodimlar; mijoz ko'rmaydi) |
-| `GET /projects/:projectId/tasks` (`?assignee=me`, `?statusId=`) | `task.view` (mijozda yo'q) |
-| `POST /projects/:projectId/tasks` | `task.create`; `assigneeIds` (10 tagacha mas'ul) berilsa `task.assign` ham. Mas'ullar faqat loyihadagi xodimlar (`task.view` bor), mijozga task berilmaydi. `incidentId` berilsa, task insidentga bog'lanadi (`incident.view` kerak) va insident xronologiyasiga yoziladi |
-| `GET /projects/:projectId/tasks/:taskRef` | `task.view`; task id yoki raqami (`LP-12` uchun `12`), izohlar bilan |
-| `PATCH /projects/:projectId/tasks/:taskRef` | maydon bo'yicha: `task.update`, `task.assign` (`assigneeIds` — to'liq ro'yxat); Done'ga o'tkazish yoki qaytarish `task.close` |
+| `GET /projects/:projectId/tasks` (`?assignee=me`, `?statusId=`, `?subtasks=true`) | `task.view` (mijozda yo'q). Odatda faqat asosiy tasklar; har birida `subtaskCount` (jami/yopilgan) |
+| `POST /projects/:projectId/tasks` | `task.create`; `assigneeIds` (10 tagacha mas'ul) berilsa `task.assign` ham. Mas'ullar faqat loyihadagi xodimlar (`task.view` bor), mijozga task berilmaydi. `type` — `TASK` / `BUG` (xato) / `FEATURE` (yangi funksiya). `parentId` — kichik vazifa (faqat bir daraja, shu loyihada). `incidentId` berilsa, task insidentga bog'lanadi (`incident.view` kerak) va insident xronologiyasiga yoziladi |
+| `GET /projects/:projectId/tasks/:taskRef` | `task.view`; task id yoki raqami (`LP-12` uchun `12`), izohlar va kichik vazifalar bilan |
+| `GET /projects/:projectId/tasks/:taskRef/history` | `task.view`; tarix: yaratildi, holat, mas'ullar, maydonlar (eski → yangi), kichik vazifa qo'shildi, izoh, muddati o'tdi |
+| `PATCH /projects/:projectId/tasks/:taskRef` | maydon bo'yicha: `task.update`, `task.assign` (`assigneeIds` — to'liq ro'yxat); Done'ga o'tkazish yoki qaytarish `task.close` (kichik vazifa uchun `task.update` yetarli: nazorat ota taskda) |
 | `POST` / `DELETE /projects/:projectId/tasks/:taskRef/claim` | "Men olaman" / "Taskdan chiqish": loyiha a'zosi o'zini mas'ullarga qo'shadi yoki chiqaradi, `task.update` yetarli |
 | `POST /projects/:projectId/tasks/:taskRef/comments` | `task.comment`; `@username` faqat loyiha a'zolari uchun ishlaydi |
 | `GET /tasks/mine` (`?all=true`) | barcha loyihalardagi menga berilgan ochiq tasklar |

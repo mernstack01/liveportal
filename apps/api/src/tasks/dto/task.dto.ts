@@ -3,6 +3,7 @@ import { TIME_RE } from '../due.js';
 
 const dateOnly = z.iso.date().transform((s) => new Date(`${s}T00:00:00.000Z`));
 export const PRIORITIES = ['LOW', 'MEDIUM', 'HIGH', 'URGENT'] as const;
+export const TASK_TYPES = ['TASK', 'BUG', 'FEATURE'] as const;
 const id = z.string().min(1).max(64);
 /** Muddat soati "HH:MM" (Toshkent). Faqat sana bilan birga. */
 const time = z.string().regex(TIME_RE, 'Soat HH:MM ko‘rinishida bo‘lsin');
@@ -12,6 +13,9 @@ export const createTaskSchema = z
     title: z.string().trim().min(1).max(200),
     description: z.string().trim().max(10_000).optional(),
     priority: z.enum(PRIORITIES).optional(),
+    type: z.enum(TASK_TYPES).optional(),
+    /** Kichik vazifa (subtask) bo'lsa — ota task id'si. */
+    parentId: id.optional(),
     dueDate: dateOnly.optional(),
     dueTime: time.optional(),
     /** Mas'ullar: bir nechta odam birga javobgar bo'lishi mumkin. */
@@ -29,6 +33,7 @@ export const updateTaskSchema = z
     title: z.string().trim().min(1).max(200),
     description: z.string().trim().max(10_000).nullable(),
     priority: z.enum(PRIORITIES),
+    type: z.enum(TASK_TYPES),
     dueDate: dateOnly.nullable(),
     dueTime: time.nullable(),
     /** Mas'ullar ro'yxati to'liq almashtiriladi ([] — hech kim). */
@@ -43,6 +48,8 @@ export const listTasksQuery = z.object({
   /** `me` yoki userId. */
   assignee: z.string().min(1).max(64).optional(),
   statusId: id.optional(),
+  /** true — kichik vazifalar ham (odatda faqat asosiy tasklar). */
+  subtasks: z.enum(['true', 'false']).default('false').transform((v) => v === 'true'),
 });
 
 export const myTasksQuery = z.object({

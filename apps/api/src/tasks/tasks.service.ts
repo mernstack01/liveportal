@@ -25,6 +25,7 @@ export function toTask(t: TaskRow) {
     title: t.title,
     description: t.description,
     priority: t.priority,
+    type: t.type,
     dueDate: t.dueDate,
     dueTime: t.dueTime,
     completedAt: t.completedAt,
@@ -33,6 +34,9 @@ export function toTask(t: TaskRow) {
     reporter: toPerson(t.reporter),
     /** Insidentdan yaratilgan bo'lsa — qaysi insident. */
     incident: t.incident ? { ...t.incident, key: `INC-${t.incident.number}` } : null,
+    /** Kichik vazifa bo'lsa — ota task. */
+    parent: t.parent ? { ...t.parent, key: `${t.project.key}-${t.parent.number}` } : null,
+    subtaskCount: { total: t.subtasks.length, done: t.subtasks.filter((s) => CLOSED.has(s.status.category)).length },
     createdAt: t.createdAt,
     updatedAt: t.updatedAt,
   };
@@ -40,6 +44,18 @@ export function toTask(t: TaskRow) {
 
 function toComment(c: CommentRow) {
   return { id: c.id, author: toPerson(c.author), body: c.body, mentions: c.mentions, createdAt: c.createdAt };
+}
+
+/** Tarix uchun: qaysi maydon nimadan nimaga o'zgardi. Tavsif matni saqlanmaydi (uzun bo'lishi mumkin). */
+function fieldChanges(before: TaskRow, fields: Partial<Record<string, unknown>>): Prisma.InputJsonObject[] {
+  const show = (v: unknown): string | null => {
+    if (v instanceof Date) return v.toISOString().slice(0, 10);
+    return typeof v === 'string' || typeof v === 'number' ? String(v) : null;
+  };
+  return Object.keys(fields)
+    .filter((field) => field !== 'description')
+    .map((field) => ({ field, from: show(before[field as keyof TaskRow]), to: show(fields[field]) }))
+    .concat('description' in fields ? [{ field: 'description', from: null, to: null }] : []);
 }
 
 /** Bildirishnoma eventsiz bazaga qayta murojaat qilmasligi uchun payload'da asosiy maydonlar bor. */
@@ -65,9 +81,9 @@ function taskEvent(project: ProjectContext, t: TaskRow, actorId: string, type: D
 export class TasksService {
   constructor(private readonly repo: TasksRepository) {}
 
-  async list(project: ProjectContext, userId: string, filter: { assignee?: string; statusId?: string }) {
+  async list(project: ProjectContext, userId: string, filter: { assignee?: string; statusId?: string; subtasks?: boolean }) {
     const assigneeId = filter.assignee === 'me' ? userId : filter.assignee;
-    const rows = await this.repo.list(project.id, { assigneeId, statusId: filter.statusId });
+    const rows = await this.repo.list(project.id, { assigneeId, statusId: filter.statusId, includeSubtasks: filter.subtasks });
     return rows.map(toTask);
   }
 
@@ -77,8 +93,56 @@ export class TasksService {
 
   async get(project: ProjectContext, ref: string) {
     const task = await this.requireTask(project, ref);
-    const comments = await this.repo.comments(task.id);
-    return { ...toTask(task), comments: comments.map(toComment) };
+    const [comments, subtasks] = await Promise.all([this.repo.comments(task.id), this.repo.subtasks(task.id)]);
+    return { ...toTask(task), comments: comments.map(toComment), subtasks: subtasks.map(toTask) };
+  }
+
+  /** Kim, qachon, nimani o'zgartirdi (Jira'dagi "History"). */
+  async history(project: ProjectContext, ref: string) {
+    const task = await this.requireTask(project, ref);
+    const events = await this.repo.history(task.id);
+    type P = {
+      status?: string;
+      parentId?: string;
+      key?: string;
+      title?: string;
+      from?: { name: string };
+      to?: { name: string };
+      added?: string[];
+      removed?: string[];
+      claimed?: boolean;
+      left?: boolean;
+      fields?: string[];
+      changes?: { field: string; from?: string | null; to?: string | null }[];
+    };
+    const userIds = new Set<string>();
+    for (const e of events) {
+      if (e.actorId) userIds.add(e.actorId);
+      const p = e.payload as P;
+      for (const id of [...(p.added ?? []), ...(p.removed ?? [])]) userIds.add(id);
+    }
+    const users = await this.repo.prisma.user.findMany({ where: { id: { in: [...userIds] } }, select: { id: true, name: true } });
+    const name = (id: string) => users.find((u) => u.id === id)?.name ?? 'kimdir';
+
+    return events.map((e) => {
+      const p = e.payload as P;
+      const base = { id: e.id, at: e.createdAt, actor: e.actorId ? { userId: e.actorId, name: name(e.actorId) } : null };
+      switch (e.type) {
+        case 'task.created':
+          return e.entityId === task.id ? { ...base, kind: 'created', status: p.status ?? null } : { ...base, kind: 'subtask', key: p.key, title: p.title };
+        case 'task.status_changed':
+          return { ...base, kind: 'status', from: p.from?.name ?? null, to: p.to?.name ?? null };
+        case 'task.assigned':
+          return { ...base, kind: 'assignees', added: (p.added ?? []).map(name), removed: (p.removed ?? []).map(name), claimed: !!p.claimed, left: !!p.left };
+        case 'task.updated':
+          // Eski eventlarda faqat maydon nomlari bor.
+          return { ...base, kind: 'fields', changes: p.changes ?? (p.fields ?? []).map((field) => ({ field })) };
+        case 'task.commented':
+          return { ...base, kind: 'comment' };
+        default:
+          return { ...base, kind: 'overdue' };
+      }
+    });
   }
 
   async create(project: ProjectContext, actorId: string, dto: CreateTaskDto) {
@@ -87,10 +151,17 @@ export class TasksService {
     const assigneeIds = [...new Set(rawAssignees ?? [])];
     if (assigneeIds.length > 0) this.require(project, ['task.assign']);
 
+    if (fields.parentId) {
+      const parent = await this.repo.findInProject(project.id, fields.parentId);
+      if (!parent || parent.projectId !== project.id) throw new BadRequestException('Ota task bu loyihada topilmadi');
+      if (parent.parentId) throw new BadRequestException('Kichik vazifaga kichik vazifa qo‘shib bo‘lmaydi (bir daraja)');
+      fields.parentId = parent.id;
+    }
     const status = await this.repo.findStatus(project.id, statusId);
     if (!status) throw new BadRequestException('Bunday status bu loyihada yo‘q');
     const closing = CLOSED.has(status.category);
-    if (closing) this.require(project, ['task.close']);
+    // Kichik vazifani yopish task.update bilan: Review/Done nazorati ota taskda.
+    if (closing && !fields.parentId) this.require(project, ['task.close']);
     await this.assertMembers(project, assigneeIds);
     if (fields.incidentId) {
       // Insidentdan task: insident shu loyihada bo'lishi va odam uni ko'ra olishi kerak.
@@ -110,7 +181,7 @@ export class TasksService {
         completedAt: closing ? new Date() : null,
         assignees: { create: assigneeIds.map((userId) => ({ userId })) },
       });
-      await recordEvent(tx, taskEvent(project, created, actorId, 'task.created', { status: status.name }));
+      await recordEvent(tx, taskEvent(project, created, actorId, 'task.created', { status: status.name, ...(created.parentId ? { parentId: created.parentId } : {}) }));
       if (created.incidentId) {
         // Insident xronologiyasida ko'rinadi: "task yaratdi: ITL-12 · ...".
         await tx.incidentUpdate.create({
@@ -144,7 +215,8 @@ export class TasksService {
     const wasClosed = CLOSED.has(task.status.category);
     const nowClosed = newStatus ? CLOSED.has(newStatus.category) : wasClosed;
     if (newStatus) needed.push('task.update');
-    if (newStatus && (wasClosed || nowClosed)) needed.push('task.close');
+    // Kichik vazifani yopish/qayta ochish task.update bilan: Review/Done nazorati ota taskda.
+    if (newStatus && (wasClosed || nowClosed) && !task.parentId) needed.push('task.close');
     this.require(project, needed);
     await this.assertMembers(project, added);
 
@@ -163,7 +235,7 @@ export class TasksService {
       if (assigneeChanged) await this.repo.setAssignees(tx, task.id, next);
       const saved = await this.repo.update(tx, task.id, data);
       if (Object.keys(fields).length > 0) {
-        await recordEvent(tx, taskEvent(project, saved, actorId, 'task.updated', { fields: Object.keys(fields) }));
+        await recordEvent(tx, taskEvent(project, saved, actorId, 'task.updated', { fields: Object.keys(fields), changes: fieldChanges(task, fields) }));
       }
       if (assigneeChanged) {
         await recordEvent(tx, taskEvent(project, saved, actorId, 'task.assigned', { added, removed }));

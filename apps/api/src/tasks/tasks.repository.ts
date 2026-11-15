@@ -12,6 +12,9 @@ export const taskInclude = {
   reporter: person,
   project: { select: { id: true, key: true, name: true } },
   incident: { select: { id: true, number: true, title: true, status: true, severity: true } },
+  parent: { select: { id: true, number: true, title: true } },
+  // Kartochkadagi "2/5" uchun: faqat holat toifasi.
+  subtasks: { select: { status: { select: { category: true } } } },
 } satisfies Prisma.TaskInclude;
 
 export type TaskRow = Prisma.TaskGetPayload<{ include: typeof taskInclude }>;
@@ -34,14 +37,34 @@ export class TasksRepository {
     return this.prisma.task.findFirst({ where, include: taskInclude });
   }
 
+  subtasks(taskId: string) {
+    return this.prisma.task.findMany({ where: { parentId: taskId }, orderBy: { number: 'asc' }, include: taskInclude });
+  }
+
+  /** Task tarixi: o'zining eventlari va unga qo'shilgan kichik vazifalar. */
+  history(taskId: string) {
+    return this.prisma.event.findMany({
+      where: {
+        OR: [
+          { entityType: 'task', entityId: taskId, type: { in: ['task.created', 'task.updated', 'task.assigned', 'task.status_changed', 'task.commented', 'task.overdue'] } },
+          { type: 'task.created', payload: { path: ['parentId'], equals: taskId } },
+        ],
+      },
+      orderBy: { createdAt: 'asc' },
+      take: 300,
+    });
+  }
+
   comments(taskId: string) {
     return this.prisma.comment.findMany({ where: { taskId }, orderBy: { createdAt: 'asc' }, include: commentInclude });
   }
 
-  list(projectId: string, filter: { assigneeId?: string; statusId?: string }) {
+  /** Board: odatda faqat asosiy tasklar; kichik vazifalar ota task ichida ko'rinadi. */
+  list(projectId: string, filter: { assigneeId?: string; statusId?: string; includeSubtasks?: boolean }) {
     return this.prisma.task.findMany({
       where: {
         projectId,
+        ...(filter.includeSubtasks ? {} : { parentId: null }),
         ...(filter.statusId ? { statusId: filter.statusId } : {}),
         ...(filter.assigneeId ? { assignees: { some: { userId: filter.assigneeId } } } : {}),
       },

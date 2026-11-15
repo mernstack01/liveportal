@@ -201,8 +201,9 @@ model Task {
   description  String?
   statusId     String
   priority     Priority  @default(MEDIUM)
+  type         TaskType  @default(TASK)
   reporterId   String
-  parentId     String?
+  parentId     String? // kichik vazifa (subtask) bo'lsa — ota task; faqat bir daraja
   dueDate      DateTime? // kun (UTC yarim tun)
   dueTime      String? // ixtiyoriy soat "HH:MM", Toshkent vaqti. Bor bo'lsa, muddat aynan shu daqiqada tugaydi
   estimate     Int? // soat yoki story point — ❓
@@ -226,6 +227,14 @@ model Task {
   @@unique([projectId, number])
   @@index([dueDate])
   @@index([incidentId])
+  @@index([parentId])
+}
+
+/// Jira'dagidek task turi: oddiy ish, xato (bug) yoki yangi funksiya.
+enum TaskType {
+  TASK
+  BUG
+  FEATURE
 }
 
 enum Priority {
