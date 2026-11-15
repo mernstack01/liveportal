@@ -23,6 +23,7 @@ const router = createBrowserRouter([
         children: [{ path: 'tasks/:taskRef', element: <TaskDrawer /> }],
       },
       { path: '/projects/:projectId/chat', element: <ProjectPage tab="chat" /> },
+      { path: '/projects/:projectId/client-chat', element: <ProjectPage tab="client" /> },
       { path: '/my', element: <MyTasksPage /> },
       { path: '/dashboard', element: <DashboardPage /> },
       { path: '/team', element: <TeamPage /> },

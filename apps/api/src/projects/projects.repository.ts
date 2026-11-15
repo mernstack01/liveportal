@@ -8,7 +8,7 @@ type Db = PrismaService | Prisma.TransactionClient;
 const memberSelect = {
   userId: true,
   joinedAt: true,
-  role: { select: { name: true } },
+  role: { select: { name: true, permissions: true } },
   user: { select: { name: true, telegramUsername: true, avatarUrl: true } },
 } satisfies Prisma.ProjectMemberSelect;
 

@@ -37,10 +37,12 @@ export interface MessageInput {
   chatBody?: string;
   /** Chat xabaridagi fayllar soni. */
   chatFiles?: number;
+  /** Qaysi chat: 'internal' (Jamoa) yoki 'client' (Mijoz bilan). */
+  chatKind?: 'internal' | 'client';
 }
 
 /** Zaxira: odatda sender rolning bazadagi nomini (title) beradi. */
-const ROLE_LABELS: Record<string, string> = { teamlead: 'Teamlead', developer: 'Dasturchi', guest: 'Mehmon' };
+const ROLE_LABELS: Record<string, string> = { teamlead: 'Teamlead', developer: 'Dasturchi', guest: 'Mijoz', client: 'Mijoz' };
 const PRIORITY_MARK: Record<string, string> = { HIGH: '🔺 Yuqori prioritet', URGENT: '🔥 Shoshilinch' };
 
 /** Telegram HTML rejimi uchun. */
@@ -83,13 +85,16 @@ export function renderMessage(input: MessageInput): RenderedMessage {
   const head = task ? `<b>${escapeHtml(task.key)}</b> · ${escapeHtml(task.title)}` : '';
   const quote = input.commentBody ? `\n\n<blockquote>${escapeHtml(excerpt(input.commentBody))}</blockquote>` : '';
 
-  if (input.kind === 'chat_mention' && input.project) {
+  if ((input.kind === 'chat_mention' || input.kind === 'client_message') && input.project) {
+    const client = input.chatKind === 'client';
+    const where = `<b>${escapeHtml(input.project.name)}</b> ${client ? '· mijoz chati' : 'chatida'}`;
+    const lead = input.kind === 'chat_mention' ? `💬 ${actor} sizni ${where} belgiladi` : `💬 ${where}\n${actor} yozdi:`;
     return {
       text:
-        `💬 ${actor} sizni <b>${escapeHtml(input.project.name)}</b> chatida belgiladi` +
+        lead +
         (input.chatBody ? `\n\n<blockquote>${escapeHtml(excerpt(input.chatBody))}</blockquote>` : '') +
         (input.chatFiles ? `\n📎 ${input.chatFiles} ta fayl` : ''),
-      buttons: [openButton(input.webOrigin, `/projects/${input.project.id}/chat`)].filter((r) => r.length > 0),
+      buttons: [openButton(input.webOrigin, `/projects/${input.project.id}/${client ? 'client-chat' : 'chat'}`)].filter((r) => r.length > 0),
     };
   }
 

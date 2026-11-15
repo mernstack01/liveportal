@@ -35,6 +35,7 @@ export function InviteForm() {
         <select value={role} onChange={(e) => setRole(e.target.value)} className={`${inputClass} sm:w-56`}>
           <option value="member">A’zo (dasturchi, teamlead)</option>
           <option value="admin">Admin</option>
+          <option value="client">Mijoz (faqat loyiha chati)</option>
         </select>
         <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Kim uchun? (ixtiyoriy)" className={inputClass} />
         <Button disabled={create.isPending} className="shrink-0">

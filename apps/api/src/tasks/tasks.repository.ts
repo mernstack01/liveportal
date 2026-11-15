@@ -73,7 +73,10 @@ export class TasksRepository {
   /** Hammasi loyiha a'zosimi (mas'ullar faqat a'zolardan). */
   async allProjectMembers(projectId: string, userIds: string[]) {
     if (userIds.length === 0) return true;
-    const count = await this.prisma.projectMember.count({ where: { projectId, userId: { in: userIds } } });
+    // Mijozga (task.view yo'q) task berilmaydi: u boardni ko'rmaydi.
+    const count = await this.prisma.projectMember.count({
+      where: { projectId, userId: { in: userIds }, role: { permissions: { has: 'task.view' } } },
+    });
     return count === new Set(userIds).size;
   }
 

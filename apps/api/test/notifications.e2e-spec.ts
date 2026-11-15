@@ -213,7 +213,8 @@ describe('Telegram bildirishnomalari (e2e)', () => {
     await app.get(OutboxDispatcher).drain();
     telegram.failNext = new Error('ECONNRESET');
     await app.get(NotificationSender).drain();
-    const pending = await prisma.notification.findFirstOrThrow({ where: { userId: users.helper.id, kind: 'assigned' } });
+    // Oxirgisi: helper oldinroq ham task olgan (ko'p mas'ul testi).
+    const pending = await prisma.notification.findFirstOrThrow({ where: { userId: users.helper.id, kind: 'assigned' }, orderBy: { createdAt: 'desc' } });
     expect(pending).toMatchObject({ status: 'pending', attempts: 1, lastError: 'ECONNRESET' });
     expect(pending.nextAttemptAt.getTime()).toBeGreaterThan(Date.now() + 20_000);
 

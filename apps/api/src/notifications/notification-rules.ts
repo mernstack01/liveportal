@@ -2,7 +2,7 @@ import { Injectable, OnModuleInit } from '@nestjs/common';
 import { EventBus } from '../events/event-bus.js';
 import type { Event, Prisma } from '../generated/prisma/client.js';
 
-export type NotificationKind = 'claimed' | 'assigned' | 'mentioned' | 'commented' | 'review' | 'added' | 'overdue' | 'digest' | 'chat_mention';
+export type NotificationKind = 'claimed' | 'assigned' | 'mentioned' | 'commented' | 'review' | 'added' | 'overdue' | 'digest' | 'chat_mention' | 'client_message';
 
 /** Task eventlari payload'i (TasksService.taskEvent). */
 interface TaskPayload {
@@ -71,6 +71,12 @@ export class NotificationRules implements OnModuleInit {
     this.bus.subscribe('message.posted', 'notify:chat-mention', (e, tx) => {
       const p = e.payload as unknown as { mentions?: string[] };
       return this.enqueue(tx, e, 'chat_mention', p.mentions ?? []);
+    });
+
+    // "Mijoz bilan" chati: mijoz yozsa xodimlarga, xodim yozsa mijozlarga (ChatService hisoblaydi).
+    this.bus.subscribe('message.posted', 'notify:client-chat', (e, tx) => {
+      const p = e.payload as unknown as { notify?: string[] };
+      return this.enqueue(tx, e, 'client_message', p.notify ?? []);
     });
 
     this.bus.subscribe('user.digest', 'notify:digest', (e, tx) => this.enqueue(tx, e, 'digest', [e.entityId]));

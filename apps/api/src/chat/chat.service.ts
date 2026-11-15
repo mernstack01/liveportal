@@ -128,6 +128,7 @@ export class ChatService {
               select: { userId: true, user: { select: { telegramUsername: true } } },
             });
       const mentions = readers.filter((m) => names.has(m.user.telegramUsername!.toLowerCase())).map((m) => m.userId).filter((id) => id !== authorId);
+      const notify = kind === 'client' ? (await this.clientChatRecipients(project, authorId)).filter((id) => !mentions.includes(id)) : [];
 
       const message = await this.prisma.$transaction(async (tx) => {
         const created = await tx.message.create({
@@ -140,7 +141,7 @@ export class ChatService {
           actorId: authorId,
           entityType: 'message',
           entityId: created.id,
-          payload: { projectId: project.id, channelId: channel.id, kind, mentions, attachments: attachments.length },
+          payload: { projectId: project.id, channelId: channel.id, kind, mentions, notify, attachments: attachments.length },
         });
         return created;
       });
@@ -149,6 +150,26 @@ export class ChatService {
       await Promise.all(files.map((f) => rm(f.path, { force: true })));
       throw error;
     }
+  }
+
+  /**
+   * "Mijoz bilan" chatida kimga Telegram xabari boradi:
+   * - mijoz yozsa — loyihada mijozga javob bera oladigan xodimlarga (teamlead va shunga o'xshash);
+   * - xodim yozsa — loyihadagi mijozlarga.
+   * Mijoz — ichki chatni ko'rmaydigan a'zo (rol nomi emas, ruxsat tekshiriladi).
+   */
+  private async clientChatRecipients(project: ProjectContext, authorId: string): Promise<string[]> {
+    const authorIsStaff = project.permissions.includes('message.internal.read');
+    const members = await this.prisma.projectMember.findMany({
+      where: { projectId: project.id, userId: { not: authorId }, role: { permissions: { has: 'message.external.read' } } },
+      select: { userId: true, role: { select: { permissions: true } } },
+    });
+    return members
+      .filter((m) => {
+        const staff = m.role.permissions.includes('message.internal.read');
+        return authorIsStaff ? !staff : staff && m.role.permissions.includes('message.external.write');
+      })
+      .map((m) => m.userId);
   }
 
   /** Faqat muallif o'z xabarini tahrirlaydi. Fayllar qoladi; fayli bor xabar matnsiz bo'lishi mumkin. */

@@ -221,7 +221,7 @@ export class TasksService {
 
   private async assertMembers(project: ProjectContext, userIds: string[]) {
     if (!(await this.repo.allProjectMembers(project.id, userIds))) {
-      throw new BadRequestException('Task faqat loyiha a’zolariga beriladi. Avval ularni loyihaga qo‘shing');
+      throw new BadRequestException('Task faqat loyihadagi xodimlarga beriladi (mijozga emas). Avval ularni loyihaga qo‘shing');
     }
   }
 

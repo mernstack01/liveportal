@@ -30,6 +30,8 @@ function toMember(m: MemberRow) {
     telegramUsername: m.user.telegramUsername,
     avatarUrl: m.user.avatarUrl,
     role: m.role.name,
+    /** Xodim (task oladi, ichki chatni ko'radi) yoki mijoz. */
+    isClient: !m.role.permissions.includes('task.view'),
     joinedAt: m.joinedAt,
   };
 }

@@ -113,10 +113,13 @@ describe('Tasklar, izohlar va outbox (e2e)', () => {
   it('ro‘yxat filtrlari, raqam bo‘yicha olish va mening tasklarim', async () => {
     const mine = await http().get(`${tasksUrl()}?assignee=me`).set(as('mentor')).expect(200);
     expect(mine.body.map((t: { id: string }) => t.id)).toEqual([task1]);
-    const all = await http().get(tasksUrl()).set(as('guest')).expect(200);
+    const all = await http().get(tasksUrl()).set(as('lead')).expect(200);
     expect(all.body.map((t: { number: number }) => t.number)).toEqual([3, 2, 1]);
 
-    await http().get(`${tasksUrl()}/1`).set(as('guest')).expect(200);
+    await http().get(`${tasksUrl()}/1`).set(as('mentor')).expect(200);
+    // Mijoz (guest) boardni ko'rmaydi: faqat "Mijoz bilan" chat.
+    await http().get(tasksUrl()).set(as('guest')).expect(403);
+    await http().get(`${tasksUrl()}/1`).set(as('guest')).expect(403);
     await http().get(`${tasksUrl()}/999`).set(as('lead')).expect(404);
 
     const myTasks = await http().get('/api/v1/tasks/mine').set(as('mentor')).expect(200);

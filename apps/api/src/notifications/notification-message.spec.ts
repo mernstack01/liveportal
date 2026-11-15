@@ -65,6 +65,35 @@ describe('renderMessage', () => {
     expect(msg.buttons).toEqual([[{ text: 'Ochish', webAppUrl: 'https://portal.itlive.uz/projects/p1' }]]);
   });
 
+  it('mijoz chati: kim yozgani, matn va "Mijoz bilan" chatiga havola', () => {
+    const msg = renderMessage({
+      kind: 'client_message',
+      recipientId: 'u-lead',
+      actorName: 'Bobur <Mijoz>',
+      webOrigin: 'https://portal.itlive.uz',
+      project: { id: 'p1', name: 'LivePortal' },
+      chatBody: 'To‘lov qachon tayyor?',
+      chatFiles: 2,
+      chatKind: 'client',
+    });
+    expect(msg.text).toBe('💬 <b>LivePortal</b> · mijoz chati\nBobur &lt;Mijoz&gt; yozdi:\n\n<blockquote>To‘lov qachon tayyor?</blockquote>\n📎 2 ta fayl');
+    expect(msg.buttons).toEqual([[{ text: 'Ochish', webAppUrl: 'https://portal.itlive.uz/projects/p1/client-chat' }]]);
+  });
+
+  it('ichki chatdagi mention ichki chatga olib boradi', () => {
+    const msg = renderMessage({
+      kind: 'chat_mention',
+      recipientId: 'u1',
+      actorName: 'Ali',
+      webOrigin: 'https://portal.itlive.uz',
+      project: { id: 'p1', name: 'LivePortal' },
+      chatBody: 'qarang',
+      chatKind: 'internal',
+    });
+    expect(msg.text).toContain('💬 Ali sizni <b>LivePortal</b> chatida belgiladi');
+    expect(msg.buttons).toEqual([[{ text: 'Ochish', webAppUrl: 'https://portal.itlive.uz/projects/p1/chat' }]]);
+  });
+
   it('escapeHtml', () => {
     expect(escapeHtml('<b>&')).toBe('&lt;b&gt;&amp;');
   });

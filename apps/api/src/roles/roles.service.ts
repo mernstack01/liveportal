@@ -90,6 +90,8 @@ export class RolesService {
   private async checkPermissions(workspace: WorkspaceContext, userId: string, requested: string[]) {
     const held = await this.requireManager(workspace, userId);
     const permissions = [...new Set(requested)];
+    // Task bilan ishlaydigan rol boardni ko'ra olishi shart.
+    if (permissions.some((p) => p.startsWith('task.')) && !permissions.includes('task.view')) permissions.push('task.view');
     if (permissions.length === 0) throw new BadRequestException('Kamida bitta ruxsat tanlang');
     const unknown = permissions.filter((p) => !ASSIGNABLE.has(p));
     if (unknown.length > 0) throw new BadRequestException(`Loyiha roliga berib bo‘lmaydigan ruxsat: ${unknown.join(', ')}`);

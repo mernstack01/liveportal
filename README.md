@@ -82,20 +82,21 @@ Jonli namoyish (demo jamoa, kirish ID'lari, o'chirish buyrug'i): [docs/demo.md](
 | `PATCH /projects/:projectId` | `project.update`; arxivlash uchun `project.archive` ham |
 | `POST /projects/:projectId/members` | `project.member.manage`; o'zidan yuqori rol berib bo'lmaydi |
 | `PATCH`/`DELETE /projects/:projectId/members/:userId` | `project.member.manage`; o'zini o'zgartirib bo'lmaydi |
-| `GET /workspace/members` | workspace a'zosi |
-| `GET /projects/:projectId/tasks` (`?assignee=me`, `?statusId=`) | loyihani ko'ra oladigan odam |
-| `POST /projects/:projectId/tasks` | `task.create`; `assigneeIds` (10 tagacha mas'ul) berilsa `task.assign` ham. Mas'ullar faqat loyiha a'zolari |
-| `GET /projects/:projectId/tasks/:taskRef` | task id yoki raqami (`LP-12` uchun `12`), izohlar bilan |
+| `GET /workspace/members` | `team.view` (xodimlar; mijoz ko'rmaydi) |
+| `GET /projects/:projectId/tasks` (`?assignee=me`, `?statusId=`) | `task.view` (mijozda yo'q) |
+| `POST /projects/:projectId/tasks` | `task.create`; `assigneeIds` (10 tagacha mas'ul) berilsa `task.assign` ham. Mas'ullar faqat loyihadagi xodimlar (`task.view` bor), mijozga task berilmaydi |
+| `GET /projects/:projectId/tasks/:taskRef` | `task.view`; task id yoki raqami (`LP-12` uchun `12`), izohlar bilan |
 | `PATCH /projects/:projectId/tasks/:taskRef` | maydon bo'yicha: `task.update`, `task.assign` (`assigneeIds` — to'liq ro'yxat); Done'ga o'tkazish yoki qaytarish `task.close` |
 | `POST` / `DELETE /projects/:projectId/tasks/:taskRef/claim` | "Men olaman" / "Taskdan chiqish": loyiha a'zosi o'zini mas'ullarga qo'shadi yoki chiqaradi, `task.update` yetarli |
 | `POST /projects/:projectId/tasks/:taskRef/comments` | `task.comment`; `@username` faqat loyiha a'zolari uchun ishlaydi |
 | `GET /tasks/mine` (`?all=true`) | barcha loyihalardagi menga berilgan ochiq tasklar |
-| `GET`/`POST`/`PATCH`/`DELETE /roles` | ro'yxat — har kim; yaratish va tahrirlash — `role.manage` (teamlead, admin, rahbar), o'zida yo'q ruxsatni berib bo'lmaydi |
-| `GET`/`POST /projects/:projectId/chat` | ichki chat: `message.internal.read` / `.write` (mehmon ko'rmaydi); `?before=` bilan eski xabarlar. POST multipart: `body` + `files[]` (10 tagacha, har biri `MAX_UPLOAD_MB`) |
+| `GET`/`POST`/`PATCH`/`DELETE /roles` | ro'yxat — har kim; yaratish va tahrirlash — `role.manage` (teamlead, admin, rahbar), o'zida yo'q ruxsatni berib bo'lmaydi; task ruxsati bor rolga `task.view` avtomatik qo'shiladi |
+| `GET`/`POST /projects/:projectId/chat`, `PATCH .../chat/:messageId` | ichki chat: `message.internal.read` / `.write` (mijoz ko'rmaydi); `?before=` bilan eski xabarlar. POST multipart: `body` + `files[]` (10 tagacha, har biri `MAX_UPLOAD_MB`). PATCH — faqat o'z xabarini |
+| `GET`/`POST /projects/:projectId/client-chat`, `PATCH .../client-chat/:messageId` | "Mijoz bilan" chat: `message.external.read` / `.write` — mijoz (loyiha roli `guest`, nomi "Mijoz") va teamlead/admin. Dasturchi ko'rmaydi |
 | `GET /files/:id?exp&sig` | imzolangan havola (1 soat). Faqat haqiqiy PNG/JPEG/GIF/WEBP brauzerda ochiladi, qolgani yuklab olinadi |
 | `GET /dashboard` | `dashboard.view_all`: loyihalar progressi, kechikkan tasklar, odamlar yuklamasi, bu hafta yopilganlar |
 
-Loyihadagi ruxsat = workspace roli + loyiha roli. Arxivdagi loyihada task yaratib ham, izoh yozib ham bo'lmaydi (409).
+Loyihadagi ruxsat = workspace roli + loyiha roli. **Mijoz**: workspace roli `client` (ruxsatsiz, "Jamoa" sahifasida "Mijoz" deb taklif qilinadi) + loyihada `guest`. U faqat o'zi qo'shilgan loyihalarni va ulardagi "Mijoz bilan" chatni ko'radi: board, tasklar, ichki chat, jamoa ro'yxati yopiq. Arxivdagi loyihada task yaratib ham, izoh yozib ham bo'lmaydi (409).
 
 **Telegram bildirishnomalari:**
 
@@ -108,7 +109,8 @@ Loyihadagi ruxsat = workspace roli + loyiha roli. Arxivdagi loyihada task yarati
 | Review'ga o'tdi | muallif va loyihadagi `task.close` egalariga (teamlead) |
 | Loyihaga qo'shildi | qo'shilgan odamga |
 | Muddati o'tdi | mas'ullar, muallif va teamleadlarga. Soatli muddat — o'sha daqiqada (`DeadlineJob`), soatsiz — ertalab 09:00 |
-| Chatda @mention | belgilangan xodimga (mehmon belgilanmaydi) |
+| Chatda @mention | belgilangan odamga (ichki chatda mijoz belgilanmaydi) |
+| Mijoz chatiga xabar | mijoz yozsa — loyihadagi mijozga javob bera oladigan xodimlarga (teamlead); xodim yozsa — loyihadagi mijozlarga |
 | Ertalabki xulosa, 09:00 Toshkent | muddati o'tgan / bugun / ertaga taski bor har bir odamga, bitta xabar |
 
 Hech kimga o'zi qilgan ish haqida xabar kelmaydi. Ertalabki ish (`MorningJob`) kuniga bir marta bajariladi (`JobRun`): server 09:00 da o'chiq bo'lsa, yoqilganda o'sha kun uchun bajariladi. Bot: `/today`, `/mytasks`, `/help`. Navbat `Notification` jadvalida: qatorlar event bilan bir tranzaksiyada yoziladi, `NotificationSender` har `NOTIFY_POLL_MS` da yuboradi (429 da kutadi, tarmoq xatosida 5 marta qayta urinadi, bot bloklangan bo'lsa `failed`). "Ochish" tugmasi faqat `WEB_ORIGIN` https bo'lganda chiqadi.

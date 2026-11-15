@@ -9,7 +9,7 @@ import { Avatar, Button, ErrorText, inputClass, Modal } from './ui'
 export function MembersDialog({ project, userId, onClose }: { project: ProjectDetail; userId: string; onClose: () => void }) {
   const queryClient = useQueryClient()
   const canManage = project.myPermissions.includes('project.member.manage') && project.status !== 'ARCHIVED'
-  const workspaceMembers = useWorkspaceMembers()
+  const workspaceMembers = useWorkspaceMembers(canManage)
   const [newUserId, setNewUserId] = useState('')
   const [newRole, setNewRole] = useState('developer')
   const roleTitle = useRoleTitle()
@@ -100,12 +100,23 @@ export function MembersDialog({ project, userId, onClose }: { project: ProjectDe
             <p className="text-sm text-slate-500">Workspace’dagi hamma loyihada bor. Yangi odamni "Jamoa" sahifasidan taklif qiling.</p>
           ) : (
             <div className="flex flex-col gap-2 sm:flex-row">
-              <select value={newUserId} onChange={(e) => setNewUserId(e.target.value)} className={inputClass} required>
+              <select
+                value={newUserId}
+                onChange={(e) => {
+                  setNewUserId(e.target.value)
+                  // Workspace'da mijoz bo'lsa, loyihada ham "Mijoz" roli (faqat mijoz chati).
+                  const picked = candidates.find((m) => m.userId === e.target.value)
+                  setNewRole(picked?.role === 'client' ? 'guest' : 'developer')
+                }}
+                className={inputClass}
+                required
+              >
                 <option value="">Kimni?</option>
                 {candidates.map((m) => (
                   <option key={m.userId} value={m.userId}>
                     {m.name}
                     {m.telegramUsername ? ` (@${m.telegramUsername})` : ''}
+                    {m.role === 'client' ? ' — mijoz' : ''}
                   </option>
                 ))}
               </select>

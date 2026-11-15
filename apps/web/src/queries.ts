@@ -28,8 +28,9 @@ export const useTasks = (projectId: string) =>
     refetchInterval: 15_000,
   })
 
-export const useWorkspaceMembers = () =>
-  useQuery({ queryKey: keys.workspaceMembers, queryFn: () => api<Member[]>('/workspace/members') })
+/** Xodimlar ro'yxati (team.view). Mijozda yo'q, shuning uchun kerak bo'lgandagina so'raladi. */
+export const useWorkspaceMembers = (enabled = true) =>
+  useQuery({ queryKey: keys.workspaceMembers, queryFn: () => api<Member[]>('/workspace/members'), enabled })
 
 /** `ref` — task raqami (URL'da `/tasks/12`) yoki id. */
 export const useTask = (projectId: string, ref: string) =>

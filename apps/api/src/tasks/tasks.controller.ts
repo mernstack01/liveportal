@@ -10,7 +10,7 @@ export class TasksController {
   constructor(private readonly tasks: TasksService) {}
 
   @Get()
-  @RequireProjectAccess()
+  @RequireProjectAccess('task.view')
   list(@Query() query: unknown, @CurrentUser() user: AuthUser, @CurrentProject() project: ProjectContext) {
     return this.tasks.list(project, user.id, parse(listTasksQuery, query));
   }
@@ -23,14 +23,14 @@ export class TasksController {
 
   /** `:taskRef` — task id yoki raqami (LP-12 uchun `12`). */
   @Get(':taskRef')
-  @RequireProjectAccess()
+  @RequireProjectAccess('task.view')
   get(@Param('taskRef') ref: string, @CurrentProject() project: ProjectContext) {
     return this.tasks.get(project, ref);
   }
 
   /** Ruxsatlar maydon bo'yicha service'da tekshiriladi: task.update, task.assign, task.close. */
   @Patch(':taskRef')
-  @RequireProjectAccess()
+  @RequireProjectAccess('task.view')
   update(@Param('taskRef') ref: string, @Body() body: unknown, @CurrentUser() user: AuthUser, @CurrentProject() project: ProjectContext) {
     return this.tasks.update(project, user.id, ref, parse(updateTaskSchema, body));
   }

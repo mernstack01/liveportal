@@ -34,18 +34,23 @@ export function AppLayout() {
             <NavLink to="/" className={() => navClass({ isActive: pathname === '/' || pathname.startsWith('/projects/') })}>
               Loyihalar
             </NavLink>
-            <NavLink to="/my" className={navClass}>
-              <span className="sm:hidden">Tasklarim</span>
-              <span className="hidden sm:inline">Mening tasklarim</span>
-            </NavLink>
+            {/* Mijozda (team.view yo'q) faqat loyihalar: tasklar va jamoa xodimlar uchun */}
+            {can('team.view') && (
+              <NavLink to="/my" className={navClass}>
+                <span className="sm:hidden">Tasklarim</span>
+                <span className="hidden sm:inline">Mening tasklarim</span>
+              </NavLink>
+            )}
             {can('dashboard.view_all') && (
               <NavLink to="/dashboard" className={navClass}>
                 Dashboard
               </NavLink>
             )}
-            <NavLink to="/team" className={navClass}>
-              Jamoa
-            </NavLink>
+            {can('team.view') && (
+              <NavLink to="/team" className={navClass}>
+                Jamoa
+              </NavLink>
+            )}
             {canManageRoles && (
               <NavLink to="/roles" className={navClass}>
                 Rollar

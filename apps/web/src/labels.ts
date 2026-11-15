@@ -6,7 +6,8 @@ export const ROLE_LABELS: Record<string, string> = {
   member: 'A’zo',
   teamlead: 'Teamlead',
   developer: 'Dasturchi',
-  guest: 'Mehmon',
+  guest: 'Mijoz',
+  client: 'Mijoz',
 }
 export const roleLabel = (role: string | null | undefined) => (role ? (ROLE_LABELS[role] ?? role) : '—')
 

@@ -8,6 +8,8 @@ export const PERMISSIONS = [
   /** Faqat owner: workspace'ni o'chirish, egalikni topshirish. Admin owner yarata olmasligi shu bilan ta'minlanadi. */
   'workspace.owner',
   'member.invite',
+  /** Workspace xodimlari ro'yxati va "Mening tasklarim". Mijozda yo'q. */
+  'team.view',
   'member.role.assign',
   'dashboard.view_all',
   /** Yangi loyiha rollarini yaratish va tahrirlash (teamlead, admin, rahbar). */
@@ -16,6 +18,8 @@ export const PERMISSIONS = [
   'project.update',
   'project.archive',
   'project.member.manage',
+  /** Board va tasklarni ko'rish. Mijozda yo'q: u faqat "Mijoz bilan" chatni ko'radi. */
+  'task.view',
   'task.create',
   'task.update',
   'task.assign',
@@ -42,6 +46,7 @@ export interface SystemRole {
 
 /** Loyiha rollariga beriladigan ruxsatlar (rol yaratish oynasidagi ro'yxat), o'zbekcha nomi bilan. */
 export const PROJECT_PERMISSIONS: readonly { key: Permission; label: string; group: string }[] = [
+  { key: 'task.view', label: 'Board va tasklarni ko‘rish', group: 'Tasklar' },
   { key: 'task.create', label: 'Task yaratish', group: 'Tasklar' },
   { key: 'task.update', label: 'Taskni tahrirlash va holatini o‘zgartirish', group: 'Tasklar' },
   { key: 'task.assign', label: 'Task berish (bajaruvchi tayinlash)', group: 'Tasklar' },
@@ -63,7 +68,9 @@ const ADMIN = PERMISSIONS.filter((p) => p !== 'workspace.owner');
 export const SYSTEM_ROLES: readonly SystemRole[] = [
   { name: 'owner', title: 'Rahbar', scope: 'WORKSPACE', permissions: ALL },
   { name: 'admin', title: 'Admin', scope: 'WORKSPACE', permissions: ADMIN },
-  { name: 'member', title: 'A’zo', scope: 'WORKSPACE', permissions: ['project.create'] },
+  { name: 'member', title: 'A’zo', scope: 'WORKSPACE', permissions: ['team.view', 'project.create'] },
+  // Tashqi odam: faqat o'zi qo'shilgan loyihalarning "Mijoz bilan" chati (loyiha roli 'guest' orqali).
+  { name: 'client', title: 'Mijoz', scope: 'WORKSPACE', permissions: [] },
   {
     name: 'teamlead',
     title: 'Teamlead',
@@ -73,6 +80,7 @@ export const SYSTEM_ROLES: readonly SystemRole[] = [
       'project.archive',
       'project.member.manage',
       'role.manage',
+      'task.view',
       'task.create',
       'task.update',
       'task.assign',
@@ -89,11 +97,12 @@ export const SYSTEM_ROLES: readonly SystemRole[] = [
     name: 'developer',
     title: 'Dasturchi',
     scope: 'PROJECT',
-    permissions: ['task.create', 'task.update', 'task.assign', 'task.comment', 'message.internal.read', 'message.internal.write'],
+    permissions: ['task.view', 'task.create', 'task.update', 'task.assign', 'task.comment', 'message.internal.read', 'message.internal.write'],
   },
   {
+    // Nomi tarixan 'guest'; interfeysda "Mijoz".
     name: 'guest',
-    title: 'Mehmon',
+    title: 'Mijoz',
     scope: 'PROJECT',
     permissions: ['message.external.read', 'message.external.write'],
   },

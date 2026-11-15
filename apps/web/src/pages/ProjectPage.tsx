@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
-import { Link, NavLink, Outlet, useParams } from 'react-router'
+import { Link, Navigate, NavLink, Outlet, useParams } from 'react-router'
 import { api, ApiError } from '../api'
 import { Board } from '../board/Board'
 import { ChatPanel } from '../chat/ChatPanel'
@@ -51,7 +51,9 @@ function StatusControl({ project }: { project: ProjectDetail }) {
   )
 }
 
-export function ProjectPage({ tab = 'board' }: { tab?: 'board' | 'chat' }) {
+type ProjectTab = 'board' | 'chat' | 'client'
+
+export function ProjectPage({ tab = 'board' }: { tab?: ProjectTab }) {
   const { projectId = '' } = useParams()
   const { me } = useMe()
   const project = useProject(projectId)
@@ -68,6 +70,16 @@ export function ProjectPage({ tab = 'board' }: { tab?: 'board' | 'chat' }) {
   }
 
   const p = project.data
+  const can = (perm: string) => p.myPermissions.includes(perm)
+  // Bo'limlar ruxsatga qarab: mijoz faqat "Mijoz bilan" chatni ko'radi.
+  const tabs = [
+    { id: 'board' as const, to: `/projects/${p.id}`, label: 'Board', allowed: can('task.view') },
+    { id: 'chat' as const, to: `/projects/${p.id}/chat`, label: 'Jamoa chati', allowed: can('message.internal.read') },
+    { id: 'client' as const, to: `/projects/${p.id}/client-chat`, label: 'Mijoz bilan', allowed: can('message.external.read') },
+  ].filter((t) => t.allowed)
+  if (!tabs.some((t) => t.id === tab)) {
+    return tabs.length > 0 ? <Navigate to={tabs[0].to} replace /> : <NotFoundPage message="Bu loyihada sizga ochiq bo‘lim yo‘q" />
+  }
   return (
     <main className="space-y-4 py-5">
       <div className="mx-auto flex max-w-7xl flex-wrap items-start justify-between gap-4 px-4">
@@ -104,29 +116,26 @@ export function ProjectPage({ tab = 'board' }: { tab?: 'board' | 'chat' }) {
         </button>
       </div>
 
-      {p.myPermissions.includes('message.internal.read') && (
+      {tabs.length > 1 && (
         <nav className="mx-auto flex max-w-7xl gap-1 px-4" aria-label="Loyiha bo‘limlari">
-          {[
-            { to: `/projects/${p.id}`, label: 'Board', active: tab === 'board' },
-            { to: `/projects/${p.id}/chat`, label: 'Chat', active: tab === 'chat' },
-          ].map((t) => (
+          {tabs.map((t) => (
             <NavLink
-              key={t.label}
+              key={t.id}
               to={t.to}
               end
-              className={`rounded-md px-3 py-1.5 text-sm font-medium ${t.active ? 'bg-white text-slate-900 shadow-sm ring-1 ring-slate-200' : 'text-slate-500 hover:text-slate-900'}`}
+              className={`rounded-md px-3 py-1.5 text-sm font-medium ${t.id === tab ? 'bg-white text-slate-900 shadow-sm ring-1 ring-slate-200' : 'text-slate-500 hover:text-slate-900'}`}
             >
               {t.label}
             </NavLink>
           ))}
         </nav>
       )}
-      {tab === 'chat' && p.myPermissions.includes('message.internal.read') ? (
-        <div className="px-4">
-          <ChatPanel project={p} userId={me.id} />
-        </div>
-      ) : (
+      {tab === 'board' ? (
         <Board project={p} userId={me.id} />
+      ) : (
+        <div className="px-4">
+          <ChatPanel key={tab} project={p} userId={me.id} kind={tab === 'client' ? 'client' : 'internal'} />
+        </div>
       )}
       {membersOpen && <MembersDialog project={p} userId={me.id} onClose={() => setMembersOpen(false)} />}
       <Outlet />

@@ -73,7 +73,8 @@ describe('Rollarni boshqarish (e2e)', () => {
       .expect(201);
     created.push(res.body.id);
     expect(res.body).toMatchObject({ name: `qa_muhandis_${run.toLowerCase()}`, title: `QA muhandis ${run}`, scope: 'PROJECT', isSystem: false });
-    expect(res.body.permissions).toEqual(['task.create', 'task.comment', 'role.manage']);
+    // Task ruxsati bor rol boardni ham ko'rishi kerak: task.view avtomatik qo'shiladi.
+    expect(res.body.permissions).toEqual(['task.create', 'task.comment', 'role.manage', 'task.view']);
 
     const add = await http().post(`/api/v1/projects/${projectId}/members`).set(as('lead')).send({ userId: users.junior.id, role: res.body.name }).expect(201);
     expect(add.body.role).toBe(res.body.name);

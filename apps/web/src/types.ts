@@ -12,6 +12,8 @@ export interface Person {
 export interface Member extends Person {
   role: string
   joinedAt: string
+  /** Loyiha a'zolarida: mijoz (board va ichki chatni ko'rmaydi). */
+  isClient?: boolean
 }
 
 export interface ProjectSummary {
