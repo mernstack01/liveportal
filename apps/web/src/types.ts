@@ -15,6 +15,8 @@ export interface Member extends Person {
   joinedAt: string
   /** Loyiha a'zolarida: mijoz (board va ichki chatni ko'rmaydi). */
   isClient?: boolean
+  /** Jamoa ro'yxatida: shu odamni men o'zgartira yoki chiqara olamanmi. */
+  canManage?: boolean
 }
 
 export interface ProjectSummary {

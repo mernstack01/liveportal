@@ -1,4 +1,4 @@
-import { ForbiddenException, Injectable } from '@nestjs/common';
+import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { TelegramUser } from '../auth/telegram-verify.js';
 import { sha256 } from '../common/crypto.js';
@@ -48,6 +48,25 @@ export class InvitesService {
       link: inviteLink(this.config.get('TELEGRAM_BOT_USERNAME', { infer: true }), invite.token),
       token: invite.token,
     };
+  }
+
+  /** Hali ishlatilmagan va muddati o'tmagan takliflar. Havolaning o'zi qayta ko'rsatilmaydi (faqat xeshi saqlanadi). */
+  async pending(workspaceId: string) {
+    const rows = await this.prisma.invite.findMany({
+      where: { workspaceId, usedAt: null, expiresAt: { gt: new Date() } },
+      orderBy: { createdAt: 'desc' },
+      include: { role: { select: { name: true } }, createdBy: { select: { name: true } } },
+    });
+    return rows.map((i) => ({ id: i.id, role: i.role.name, note: i.note, createdBy: i.createdBy?.name ?? null, createdAt: i.createdAt, expiresAt: i.expiresAt }));
+  }
+
+  /** Bekor qilish: havola darhol ishlamay qoladi (yozuv tarix uchun qoladi). */
+  async revoke(workspaceId: string, inviteId: string): Promise<void> {
+    const revoked = await this.prisma.invite.updateMany({
+      where: { id: inviteId, workspaceId, usedAt: null, expiresAt: { gt: new Date() } },
+      data: { expiresAt: new Date() },
+    });
+    if (revoked.count === 0) throw new NotFoundException('Faol taklif topilmadi (ishlatilgan yoki muddati o‘tgan)');
   }
 
   /** Bot `/start inv_<token>` da chaqiradi. Bir martalik, muddati cheklangan. */

@@ -1,9 +1,10 @@
-import { useMutation } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState, type FormEvent } from 'react'
 import { api } from '../api'
 import { Button, ErrorText, inputClass } from './ui'
 
 interface CreatedInvite {
+  id: string
   role: string
   link: string | null
   token: string
@@ -14,16 +15,23 @@ export function InviteForm() {
   const [role, setRole] = useState('member')
   const [note, setNote] = useState('')
   const [copied, setCopied] = useState(false)
+  const queryClient = useQueryClient()
   const create = useMutation({
     mutationFn: () => api<CreatedInvite>('/invites', { method: 'POST', body: JSON.stringify({ role, note: note || undefined }) }),
-    onSuccess: () => setCopied(false),
+    onSuccess: () => {
+      setCopied(false)
+      void queryClient.invalidateQueries({ queryKey: ['invites'] })
+    },
   })
 
   const submit = (e: FormEvent) => {
     e.preventDefault()
     create.mutate()
   }
-  const link = create.data && (create.data.link ?? `/start inv_${create.data.token}`)
+  // "Faol takliflar"dan bekor qilinsa, havola shu yerda ham ko'rsatilmaydi.
+  const pending = useQuery({ queryKey: ['invites'], queryFn: () => api<{ id: string }[]>('/invites') })
+  const revoked = !!create.data && !!pending.data && !pending.data.some((i) => i.id === create.data.id)
+  const link = create.data && !revoked ? (create.data.link ?? `/start inv_${create.data.token}`) : null
 
   return (
     <section className="space-y-3 rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
@@ -43,6 +51,7 @@ export function InviteForm() {
         </Button>
       </form>
       <ErrorText error={create.error} />
+      {revoked && <p className="rounded-md bg-slate-50 p-3 text-sm text-slate-500">Bu taklif bekor qilingan: havola endi ishlamaydi.</p>}
       {link && (
         <div className="space-y-2 rounded-md bg-slate-50 p-3">
           <p className="break-all font-mono text-xs text-slate-800">{link}</p>
@@ -51,7 +60,7 @@ export function InviteForm() {
               {copied ? 'Nusxalandi' : 'Nusxalash'}
             </Button>
             <span className="text-xs text-slate-500">
-              {new Date(create.data.expiresAt).toLocaleDateString('uz-UZ')} gacha. Faqat o‘sha odamga yuboring.
+              {create.data && new Date(create.data.expiresAt).toLocaleDateString('uz-UZ')} gacha. Faqat o‘sha odamga yuboring.
             </span>
           </div>
         </div>

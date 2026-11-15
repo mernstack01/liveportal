@@ -1,5 +1,8 @@
 /** Domen hodisalari nomlari (docs/03). Modullar bir-biriga emas, shu eventlarga bog'lanadi. */
 export const EVENT_TYPES = [
+  /** Workspace xodimi: roli o'zgardi yoki chiqarildi (entityType 'user'). */
+  'member.role_changed',
+  'member.removed',
   'project.created',
   'project.member_added',
   'project.member_role_changed',

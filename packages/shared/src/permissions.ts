@@ -11,6 +11,8 @@ export const PERMISSIONS = [
   /** Workspace xodimlari ro'yxati va "Mening tasklarim". Mijozda yo'q. */
   'team.view',
   'member.role.assign',
+  /** Xodimni workspace'dan chiqarish (sessiyalari yopiladi, loyihalar va tasklardan olinadi). */
+  'member.remove',
   'dashboard.view_all',
   /** Yangi loyiha rollarini yaratish va tahrirlash (teamlead, admin, rahbar). */
   'role.manage',

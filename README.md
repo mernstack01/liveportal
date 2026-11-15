@@ -81,8 +81,11 @@ Jonli namoyish (demo jamoa, kirish ID'lari, o'chirish buyrug'i): [docs/demo.md](
 | `GET /projects/:projectId` | loyiha a'zosi yoki `dashboard.view_all`, aks holda 404 |
 | `PATCH /projects/:projectId` | `project.update`; arxivlash uchun `project.archive` ham |
 | `POST /projects/:projectId/members` | `project.member.manage`; o'zidan yuqori rol berib bo'lmaydi |
-| `PATCH`/`DELETE /projects/:projectId/members/:userId` | `project.member.manage`; o'zini o'zgartirib bo'lmaydi |
-| `GET /workspace/members` | `team.view` (xodimlar; mijoz ko'rmaydi) |
+| `PATCH`/`DELETE /projects/:projectId/members/:userId` | `project.member.manage`; o'zini o'zgartirib bo'lmaydi. Chiqarilgan odam shu loyiha tasklari va insidentlaridagi mas'ullikdan ham olinadi |
+| `GET /workspace/members` | `team.view` (xodimlar; mijoz ko'rmaydi). Har qatorda `canManage` — joriy odam uni o'zgartira oladimi |
+| `PATCH /workspace/members/:userId` | `member.role.assign`; workspace rolini o'zgartirish. O'zini, o'zidan yuqori roldagini o'zgartirib va o'zidan yuqori rol berib bo'lmaydi; oxirgi rahbar qoladi |
+| `DELETE /workspace/members/:userId` | `member.remove` (admin, rahbar); chiqarish: sessiyalar yopiladi, barcha loyihalar, tasklar va insidentlardagi mas'ullikdan olinadi, navbatdagi Telegram xabarlari bekor. Yozganlari tarixda qoladi. Javob: nechta loyiha/task/insidentdan olingani |
+| `GET /invites`, `DELETE /invites/:id` | `member.invite`; faol (ishlatilmagan, muddati o'tmagan) takliflar va bekor qilish — havola darhol ishlamay qoladi |
 | `GET /projects/:projectId/tasks` (`?assignee=me`, `?statusId=`, `?subtasks=true`) | `task.view` (mijozda yo'q). Odatda faqat asosiy tasklar; har birida `subtaskCount` (jami/yopilgan) |
 | `POST /projects/:projectId/tasks` | `task.create`; `assigneeIds` (10 tagacha mas'ul) berilsa `task.assign` ham. Mas'ullar faqat loyihadagi xodimlar (`task.view` bor), mijozga task berilmaydi. `type` — `TASK` / `BUG` (xato) / `FEATURE` (yangi funksiya). `parentId` — kichik vazifa (faqat bir daraja, shu loyihada). `incidentId` berilsa, task insidentga bog'lanadi (`incident.view` kerak) va insident xronologiyasiga yoziladi |
 | `GET /projects/:projectId/tasks/:taskRef` | `task.view`; task id yoki raqami (`LP-12` uchun `12`), izohlar va kichik vazifalar bilan |

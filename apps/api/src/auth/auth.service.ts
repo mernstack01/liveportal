@@ -90,7 +90,8 @@ export class AuthService {
       where: { id: userId },
       include: { workspaces: { include: { workspace: true, role: true }, orderBy: { joinedAt: 'asc' } } },
     });
-    if (!user) throw new UnauthorizedException();
+    // Workspace'dan chiqarilgan odam: sessiyasi yopilgan, endi kira olmaydi.
+    if (!user || user.workspaces.length === 0) throw new UnauthorizedException();
     return {
       id: user.id,
       name: user.name,

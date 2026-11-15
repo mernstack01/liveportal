@@ -179,13 +179,16 @@ export class ProjectsService {
 
     await this.repo.prisma.$transaction(async (tx) => {
       await this.repo.removeMember(tx, project.id, userId);
+      // Loyihani endi ko'rmaydi: shu loyihadagi tasklar va insidentlarda mas'ul bo'lib qolmasin.
+      const tasks = await tx.taskAssignee.deleteMany({ where: { userId, task: { projectId: project.id } } });
+      const incidents = await tx.incident.updateMany({ where: { ownerId: userId, projectId: project.id }, data: { ownerId: null } });
       await recordEvent(tx, {
         workspaceId: project.workspaceId,
         type: 'project.member_removed',
         actorId,
         entityType: 'project',
         entityId: project.id,
-        payload: { userId, role: current.role.name },
+        payload: { userId, role: current.role.name, tasks: tasks.count, incidents: incidents.count },
       });
     });
   }

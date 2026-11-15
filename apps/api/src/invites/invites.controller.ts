@@ -1,4 +1,4 @@
-import { Body, Controller, Post } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, Param, Post } from '@nestjs/common';
 import { z } from 'zod';
 import type { AuthUser, WorkspaceContext } from '../auth/auth.types.js';
 import { CurrentUser, CurrentWorkspace, RequirePermission } from '../auth/decorators.js';
@@ -25,5 +25,18 @@ export class InvitesController {
       createdById: user.id,
       inviterPermissions: workspace.permissions,
     });
+  }
+
+  @Get()
+  @RequirePermission('member.invite')
+  pending(@CurrentWorkspace() workspace: WorkspaceContext) {
+    return this.invites.pending(workspace.id);
+  }
+
+  @Delete(':id')
+  @RequirePermission('member.invite')
+  @HttpCode(204)
+  revoke(@Param('id') id: string, @CurrentWorkspace() workspace: WorkspaceContext) {
+    return this.invites.revoke(workspace.id, id);
   }
 }
