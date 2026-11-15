@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useState, type ReactNode } from 'react'
-import { useNavigate, useParams } from 'react-router'
+import { Link, useNavigate, useParams } from 'react-router'
 import { api, ApiError } from '../api'
 import { Avatar, Button, ErrorText } from '../components/ui'
 import { formatDateTime, humanError, isOverdue, PRIORITY_LABELS } from '../labels'
@@ -152,7 +152,7 @@ function TaskBody({ task, project, queryRef }: { task: TaskDetail; project: Proj
             <div className="flex flex-wrap gap-1.5">
               {can('task.assign')
                 ? // Tayinlash huquqi bor odam: bosib qo'shadi yoki olib tashlaydi (bir nechta odam).
-                  project.members.map((m) => {
+                  project.members.filter((m) => !m.isClient).map((m) => {
                     const on = assigneeIds.includes(m.userId)
                     return (
                       <button
@@ -222,6 +222,14 @@ function TaskBody({ task, project, queryRef }: { task: TaskDetail; project: Proj
             {!isClosed && isOverdue(task.dueDate, task.dueTime) && <span className="shrink-0 text-xs font-medium text-red-600">kechikdi</span>}
           </div>
         </Row>
+        {task.incident && (
+          <Row label="Insident">
+            <Link to={`/projects/${project.id}/incidents/${task.incident.number}`} className="flex min-w-0 items-center gap-2 text-sm text-red-700 hover:underline">
+              <span className="shrink-0 font-mono text-xs">🚨 {task.incident.key}</span>
+              <span className="truncate">{task.incident.title}</span>
+            </Link>
+          </Row>
+        )}
         <Row label="Muallif">
           <span className="flex items-center gap-2 text-sm">
             {task.reporter && <Avatar person={task.reporter} size="sm" />}

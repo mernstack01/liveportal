@@ -82,13 +82,32 @@ export class IncidentsService {
   /** `ref` — insident raqami (INC-3 uchun `3`) yoki id. Xronologiya bilan. */
   async get(project: ProjectContext, ref: string) {
     const incident = await this.find(project, ref);
-    const updates = await this.prisma.incidentUpdate.findMany({
-      where: { incidentId: incident.id },
-      orderBy: { createdAt: 'asc' },
-      include: { author: person },
-    });
+    const [updates, tasks, { key: projectKey }] = await Promise.all([
+      this.prisma.incidentUpdate.findMany({ where: { incidentId: incident.id }, orderBy: { createdAt: 'asc' }, include: { author: person } }),
+      this.prisma.task.findMany({
+        where: { incidentId: incident.id },
+        orderBy: { number: 'asc' },
+        select: {
+          id: true,
+          number: true,
+          title: true,
+          status: { select: { name: true, category: true, color: true } },
+          assignees: { orderBy: { createdAt: 'asc' }, select: { user: person } },
+        },
+      }),
+      this.prisma.project.findUniqueOrThrow({ where: { id: project.id }, select: { key: true } }),
+    ]);
     return {
       ...toIncident(incident),
+      /** Insidentdan kelib chiqqan tasklar (tuzatish, keyingi qadamlar). */
+      tasks: tasks.map((t) => ({
+        id: t.id,
+        number: t.number,
+        key: `${projectKey}-${t.number}`,
+        title: t.title,
+        status: t.status,
+        assignees: t.assignees.map((a) => toPerson(a.user)!),
+      })),
       updates: updates.map((u) => ({
         id: u.id,
         kind: u.kind,

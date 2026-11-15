@@ -68,9 +68,12 @@ describe('Insidentlar (e2e)', () => {
   afterAll(async () => {
     const userIds = Object.values(users).map((u) => u.id);
     const incidents = await prisma.incident.findMany({ where: { projectId }, select: { id: true } });
-    const events = await prisma.event.findMany({ where: { entityId: { in: [projectId, ...incidents.map((i) => i.id)] } }, select: { id: true } });
+    const tasks = await prisma.task.findMany({ where: { projectId }, select: { id: true } });
+    const entityIds = [projectId, ...incidents.map((i) => i.id), ...tasks.map((t) => t.id)];
+    const events = await prisma.event.findMany({ where: { entityId: { in: entityIds } }, select: { id: true } });
     await prisma.notification.deleteMany({ where: { OR: [{ eventId: { in: events.map((e) => e.id) } }, { userId: { in: userIds } }] } });
     await prisma.event.deleteMany({ where: { id: { in: events.map((e) => e.id) } } });
+    await prisma.task.deleteMany({ where: { projectId } });
     await prisma.incident.deleteMany({ where: { projectId } }); // xronologiya cascade bilan
     await prisma.workflowStatus.deleteMany({ where: { projectId } });
     await prisma.projectMember.deleteMany({ where: { projectId } });
@@ -181,6 +184,32 @@ describe('Insidentlar (e2e)', () => {
     const resolved = await http().get(url('?status=resolved')).set(as('dev')).expect(200);
     expect(resolved.body.map((i: { key: string }) => i.key)).toEqual(['INC-3']);
     await http().get(url('/999')).set(as('dev')).expect(404);
+  });
+
+  it('insidentdan task: bog‘lanadi, xronologiyada ko‘rinadi, mas’ulga xabarda insident nomi', async () => {
+    const res = await http()
+      .post(`/api/v1/projects/${projectId}/tasks`)
+      .set(as('lead'))
+      .send({ title: 'Click kalitini avtomatik yangilash', priority: 'HIGH', assigneeIds: [users.dev.id], incidentId: (await http().get(url('/1')).set(as('lead'))).body.id })
+      .expect(201);
+    expect(res.body.incident).toMatchObject({ key: 'INC-1', number: 1, title: 'To‘lov o‘tmayapti' });
+
+    const detail = await http().get(url('/1')).set(as('dev')).expect(200);
+    expect(detail.body.tasks).toEqual([
+      expect.objectContaining({ key: `I${run}-${res.body.number}`, title: 'Click kalitini avtomatik yangilash', assignees: [expect.objectContaining({ userId: users.dev.id })] }),
+    ]);
+    expect(detail.body.updates.at(-1)).toMatchObject({ kind: 'task', body: 'Click kalitini avtomatik yangilash', to: `I${run}-${res.body.number}` });
+
+    const task = await http().get(`/api/v1/projects/${projectId}/tasks/${res.body.number}`).set(as('dev')).expect(200);
+    expect(task.body.incident).toMatchObject({ key: 'INC-1' });
+
+    await flush();
+    // Oldingi testdagi INC-2 mas'ul xabari ham navbatda bo'lishi mumkin: task xabarini ajratib olamiz.
+    const assigned = sentTo().find((s) => s.to === tg.dev && s.text.includes('sizga task berdi'))?.text;
+    expect(assigned).toContain('🚨 Insidentdan: INC-1 · To‘lov o‘tmayapti');
+
+    // Boshqa loyihaning yoki noma'lum insidenti — 400.
+    await http().post(`/api/v1/projects/${projectId}/tasks`).set(as('lead')).send({ title: 'X', incidentId: 'yoq' }).expect(400);
   });
 
   it('arxivdagi loyihada insident ochib bo‘lmaydi', async () => {

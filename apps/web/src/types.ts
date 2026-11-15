@@ -62,6 +62,8 @@ export interface Task {
   /** Mas'ullar: bir nechta odam birga javobgar bo'lishi mumkin. */
   assignees: Person[]
   reporter: Person | null
+  /** Insidentdan yaratilgan bo'lsa. */
+  incident: { id: string; number: number; key: string; title: string; status: IncidentStatus; severity: IncidentSeverity } | null
   createdAt: string
   updatedAt: string
 }
@@ -208,6 +210,17 @@ export interface IncidentUpdate {
   createdAt: string
 }
 
+export interface IncidentTask {
+  id: string
+  number: number
+  key: string
+  title: string
+  status: { name: string; category: StatusCategory; color: string | null }
+  assignees: Person[]
+}
+
 export interface IncidentDetail extends Incident {
   updates: IncidentUpdate[]
+  /** Insidentdan kelib chiqqan tasklar (tuzatish, keyingi qadamlar). */
+  tasks: IncidentTask[]
 }

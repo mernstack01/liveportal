@@ -11,6 +11,7 @@ export const taskInclude = {
   assignees: { orderBy: { createdAt: 'asc' }, select: { userId: true, user: person } },
   reporter: person,
   project: { select: { id: true, key: true, name: true } },
+  incident: { select: { id: true, number: true, title: true, status: true, severity: true } },
 } satisfies Prisma.TaskInclude;
 
 export type TaskRow = Prisma.TaskGetPayload<{ include: typeof taskInclude }>;

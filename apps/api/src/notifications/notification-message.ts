@@ -22,6 +22,8 @@ export interface MessageTask {
   assigneeIds: string[];
   /** Mas'ullar ismlari vergul bilan, yo'q bo'lsa null. */
   assigneeName: string | null;
+  /** Insidentdan yaratilgan bo'lsa: "INC-3 · Sayt ishlamayapti". */
+  incident?: string | null;
 }
 
 export interface MessageInput {
@@ -111,6 +113,7 @@ export function renderMessage(input: MessageInput): RenderedMessage {
   switch (input.kind) {
     case 'assigned':
       lines.push(`📌 ${actor} sizga task berdi`, head, `📁 ${escapeHtml(task.projectName)}`);
+      if (task.incident) lines.push(`🚨 Insidentdan: ${escapeHtml(task.incident)}`);
       if (task.dueDate) lines.push(`⏰ Muddat: ${day(task.dueDate, task.dueTime)}`);
       if (PRIORITY_MARK[task.priority]) lines.push(PRIORITY_MARK[task.priority]);
       break;

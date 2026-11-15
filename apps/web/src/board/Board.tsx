@@ -36,7 +36,14 @@ function TaskCard({ task, overlay = false }: { task: Task; overlay?: boolean }) 
       className={`space-y-2 rounded-lg bg-white p-3 text-left shadow-sm ring-1 ring-slate-200 ${overlay ? 'rotate-1 shadow-lg ring-slate-400' : ''} ${closed ? 'opacity-70' : ''}`}
     >
       <div className="flex items-center justify-between gap-2">
-        <span className="font-mono text-[11px] font-medium text-slate-500">{task.key}</span>
+        <span className="flex items-center gap-1.5">
+          <span className="font-mono text-[11px] font-medium text-slate-500">{task.key}</span>
+          {task.incident && (
+            <span className="rounded bg-red-50 px-1 font-mono text-[10px] font-medium text-red-700" title={`Insidentdan: ${task.incident.title}`}>
+              🚨 {task.incident.key}
+            </span>
+          )}
+        </span>
         {task.priority !== 'MEDIUM' && <Badge className={PRIORITY_STYLES[task.priority]}>{PRIORITY_LABELS[task.priority]}</Badge>}
       </div>
       <p className={`text-sm leading-snug text-slate-900 ${closed ? 'line-through decoration-slate-400' : ''}`}>{task.title}</p>

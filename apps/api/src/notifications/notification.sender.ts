@@ -234,6 +234,7 @@ export class NotificationSender implements OnApplicationBootstrap, OnApplication
         project: { select: { key: true, name: true } },
         status: true,
         assignees: { orderBy: { createdAt: 'asc' }, select: { userId: true, user: { select: { name: true } } } },
+        incident: { select: { number: true, title: true } },
       },
     });
     if (!task) return null;
@@ -261,6 +262,7 @@ export class NotificationSender implements OnApplicationBootstrap, OnApplication
         statusCategory: task.status.category,
         assigneeIds: task.assignees.map((a) => a.userId),
         assigneeName: task.assignees.map((a) => a.user.name).join(', ') || null,
+        incident: task.incident ? `INC-${task.incident.number} · ${task.incident.title}` : null,
       },
     };
   }

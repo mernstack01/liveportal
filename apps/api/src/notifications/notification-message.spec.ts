@@ -94,6 +94,17 @@ describe('renderMessage', () => {
     expect(msg.buttons).toEqual([[{ text: 'Ochish', webAppUrl: 'https://portal.itlive.uz/projects/p1/chat' }]]);
   });
 
+  it('insidentdan yaratilgan task: qaysi insidentdan ekani yoziladi', () => {
+    const msg = renderMessage({
+      kind: 'assigned',
+      recipientId: 'u-mentor',
+      actorName: 'Ali',
+      webOrigin: 'http://localhost:5173',
+      task: { ...task, incident: 'INC-3 · Sayt <ishlamayapti>' },
+    });
+    expect(msg.text).toContain('📁 LivePortal\n🚨 Insidentdan: INC-3 · Sayt &lt;ishlamayapti&gt;');
+  });
+
   it('escapeHtml', () => {
     expect(escapeHtml('<b>&')).toBe('&lt;b&gt;&amp;');
   });

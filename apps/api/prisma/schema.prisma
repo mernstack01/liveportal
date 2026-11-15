@@ -208,10 +208,12 @@ model Task {
   estimate     Int? // soat yoki story point — ❓
   customFields Json      @default("{}")
   completedAt  DateTime?
+  incidentId   String? // insidentdan yaratilgan bo'lsa (keyingi qadam, tuzatish)
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
   project   Project          @relation(fields: [projectId], references: [id])
+  incident  Incident?        @relation(fields: [incidentId], references: [id], onDelete: SetNull)
   status    WorkflowStatus   @relation(fields: [statusId], references: [id])
   reporter  User             @relation("reporter", fields: [reporterId], references: [id])
   parent    Task?            @relation("subtasks", fields: [parentId], references: [id])
@@ -223,6 +225,7 @@ model Task {
 
   @@unique([projectId, number])
   @@index([dueDate])
+  @@index([incidentId])
 }
 
 enum Priority {
@@ -280,6 +283,7 @@ model Incident {
   reporter User             @relation("incidentReporter", fields: [reporterId], references: [id])
   owner    User?            @relation("incidentOwner", fields: [ownerId], references: [id])
   updates  IncidentUpdate[]
+  tasks    Task[] // insidentdan kelib chiqqan ishlar
 
   @@unique([projectId, number])
   @@index([projectId, status])
@@ -304,7 +308,7 @@ model IncidentUpdate {
   id         String   @id @default(cuid())
   incidentId String
   authorId   String
-  kind       String // 'created' | 'note' | 'status' | 'severity' | 'owner'
+  kind       String // 'created' | 'note' | 'status' | 'severity' | 'owner' | 'task'
   body       String   @default("")
   from       String?
   to         String?

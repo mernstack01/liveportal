@@ -31,6 +31,8 @@ export function toTask(t: TaskRow) {
     status: t.status,
     assignees: t.assignees.map((a) => toPerson(a.user)!),
     reporter: toPerson(t.reporter),
+    /** Insidentdan yaratilgan bo'lsa — qaysi insident. */
+    incident: t.incident ? { ...t.incident, key: `INC-${t.incident.number}` } : null,
     createdAt: t.createdAt,
     updatedAt: t.updatedAt,
   };
@@ -90,6 +92,12 @@ export class TasksService {
     const closing = CLOSED.has(status.category);
     if (closing) this.require(project, ['task.close']);
     await this.assertMembers(project, assigneeIds);
+    if (fields.incidentId) {
+      // Insidentdan task: insident shu loyihada bo'lishi va odam uni ko'ra olishi kerak.
+      this.require(project, ['incident.view']);
+      const incident = await this.repo.prisma.incident.findFirst({ where: { id: fields.incidentId, projectId: project.id }, select: { id: true } });
+      if (!incident) throw new BadRequestException('Bunday insident bu loyihada yo‘q');
+    }
 
     const task = await this.repo.prisma.$transaction(async (tx) => {
       const number = await this.repo.nextNumber(tx, project.id);
@@ -103,6 +111,12 @@ export class TasksService {
         assignees: { create: assigneeIds.map((userId) => ({ userId })) },
       });
       await recordEvent(tx, taskEvent(project, created, actorId, 'task.created', { status: status.name }));
+      if (created.incidentId) {
+        // Insident xronologiyasida ko'rinadi: "task yaratdi: ITL-12 · ...".
+        await tx.incidentUpdate.create({
+          data: { incidentId: created.incidentId, authorId: actorId, kind: 'task', body: created.title, to: `${created.project.key}-${created.number}` },
+        });
+      }
       if (assigneeIds.length > 0) {
         await recordEvent(tx, taskEvent(project, created, actorId, 'task.assigned', { added: assigneeIds, removed: [] }));
       }

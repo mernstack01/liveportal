@@ -1,12 +1,13 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useState, type FormEvent, type ReactNode } from 'react'
-import { useNavigate, useParams } from 'react-router'
+import { Link, useNavigate, useParams } from 'react-router'
 import { api, ApiError } from '../api'
+import { CreateTaskDialog } from '../board/CreateTaskDialog'
 import { Avatar, Button, ErrorText } from '../components/ui'
 import { formatDateTime, humanError } from '../labels'
 import { useMe } from '../me'
 import { keys, useIncident, useProject } from '../queries'
-import type { Incident, IncidentDetail, IncidentSeverity, IncidentStatus, IncidentUpdate, ProjectDetail } from '../types'
+import type { Incident, IncidentDetail, Priority, IncidentSeverity, IncidentStatus, IncidentUpdate, ProjectDetail } from '../types'
 import { fromLocalInput, incidentDuration, INCIDENT_STATUSES, SEVERITIES, SEVERITY_INFO, STATUS_INFO, toLocalInput } from './labels'
 
 const fieldClass =
@@ -93,6 +94,12 @@ function describe(u: IncidentUpdate, nameOf: (userId: string | null) => string):
           darajani {u.from} → <b>{u.to}</b> qildi
         </>
       )
+    case 'task':
+      return (
+        <>
+          task yaratdi: <b>{u.to}</b> · {u.body}
+        </>
+      )
     case 'owner':
       return u.to ? (
         <>
@@ -106,7 +113,83 @@ function describe(u: IncidentUpdate, nameOf: (userId: string | null) => string):
   }
 }
 
-const KIND_ICON: Record<string, string> = { created: '🚨', status: '🔄', severity: '⚠️', owner: '🧯', note: '📝' }
+const KIND_ICON: Record<string, string> = { created: '🚨', status: '🔄', severity: '⚠️', owner: '🧯', note: '📝', task: '📌' }
+
+/** Insident darajasidan taskning boshlang'ich prioriteti. */
+const SEVERITY_PRIORITY: Record<IncidentSeverity, Priority> = { SEV1: 'URGENT', SEV2: 'HIGH', SEV3: 'MEDIUM', SEV4: 'LOW' }
+
+/** Insidentdan kelib chiqqan ishlar: tezkor tuzatish va "qayta takrorlanmasin" choralari. */
+function IncidentTasks({ incident, project, queryRef }: { incident: IncidentDetail; project: ProjectDetail; queryRef: string }) {
+  const queryClient = useQueryClient()
+  const [creating, setCreating] = useState(false)
+  const can = (p: string) => project.myPermissions.includes(p)
+  const canCreate = can('task.create') && can('task.view') && project.status !== 'ARCHIVED'
+  const done = incident.tasks.filter((t) => t.status.category === 'DONE' || t.status.category === 'CANCELED').length
+
+  return (
+    <section className="space-y-2">
+      <div className="flex items-center justify-between gap-2">
+        <h3 className="text-sm font-medium">
+          Tasklar{' '}
+          {incident.tasks.length > 0 && (
+            <span className="font-normal text-slate-400">
+              {done}/{incident.tasks.length} yopilgan
+            </span>
+          )}
+        </h3>
+        {canCreate && (
+          <Button type="button" variant="secondary" className="px-2.5 py-1 text-xs" onClick={() => setCreating(true)}>
+            + Task yaratish
+          </Button>
+        )}
+      </div>
+      {incident.tasks.length === 0 ? (
+        <p className="text-sm text-slate-500">Tuzatish yoki qayta takrorlanmasligi uchun ishlarni shu yerdan task qilib bering.</p>
+      ) : (
+        <ul className="divide-y divide-slate-100 rounded-lg ring-1 ring-slate-200">
+          {incident.tasks.map((t) => {
+            const closed = t.status.category === 'DONE' || t.status.category === 'CANCELED'
+            const inner = (
+              <>
+                <span className="shrink-0 font-mono text-xs text-slate-500">{t.key}</span>
+                <span className={`min-w-0 flex-1 truncate text-sm ${closed ? 'text-slate-400 line-through' : 'text-slate-900'}`}>{t.title}</span>
+                <span className="shrink-0 rounded px-1.5 py-0.5 text-[11px] font-medium text-white" style={{ backgroundColor: t.status.color ?? '#64748b' }}>
+                  {t.status.name}
+                </span>
+                <span className="flex shrink-0 -space-x-1.5">
+                  {t.assignees.slice(0, 3).map((a) => (
+                    <span key={a.userId} className="rounded-full ring-2 ring-white">
+                      <Avatar person={a} size="sm" />
+                    </span>
+                  ))}
+                </span>
+              </>
+            )
+            return (
+              <li key={t.id}>
+                {can('task.view') ? (
+                  <Link to={`/projects/${project.id}/tasks/${t.number}`} className="flex items-center gap-2 px-3 py-2 hover:bg-slate-50">
+                    {inner}
+                  </Link>
+                ) : (
+                  <div className="flex items-center gap-2 px-3 py-2">{inner}</div>
+                )}
+              </li>
+            )
+          })}
+        </ul>
+      )}
+      {creating && (
+        <CreateTaskDialog
+          project={project}
+          incident={{ id: incident.id, key: incident.key, title: incident.title, priority: SEVERITY_PRIORITY[incident.severity] }}
+          onClose={() => setCreating(false)}
+          onCreated={() => void queryClient.invalidateQueries({ queryKey: keys.incident(project.id, queryRef) })}
+        />
+      )}
+    </section>
+  )
+}
 
 function Timeline({ incident, project, canWrite, queryRef }: { incident: IncidentDetail; project: ProjectDetail; canWrite: boolean; queryRef: string }) {
   const queryClient = useQueryClient()
@@ -331,6 +414,7 @@ function IncidentBody({ incident, project, queryRef }: { incident: IncidentDetai
           onSave={(text) => save({ resolution: text.trim() || null })}
         />
       )}
+      <IncidentTasks incident={incident} project={project} queryRef={queryRef} />
       <Timeline incident={incident} project={project} canWrite={canWrite} queryRef={queryRef} />
     </div>
   )

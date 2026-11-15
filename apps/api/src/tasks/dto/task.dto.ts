@@ -18,6 +18,8 @@ export const createTaskSchema = z
     assigneeIds: z.array(id).max(10).optional(),
     /** Berilmasa, loyihaning birinchi statusi (Backlog). */
     statusId: id.optional(),
+    /** Insidentdan yaratilayotgan task (tuzatish, keyingi qadam). */
+    incidentId: id.optional(),
   })
   .refine((d) => !d.dueTime || d.dueDate, { message: 'Soat faqat sana bilan birga beriladi', path: ['dueTime'] });
 export type CreateTaskDto = z.infer<typeof createTaskSchema>;

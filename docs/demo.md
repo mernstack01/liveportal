@@ -33,7 +33,7 @@ Loyihalar: **ITL** IT Live sayti, **CRM** Mentor CRM (muddati o'tgan), **TBK** T
 5. Chiqing, Malika (`900000102`) bo'lib kiring → Review'dagi taskni Done'ga sudrang: kartochka qaytadi, "faqat teamlead" xabari chiqadi.
 6. Jasur (`900000103`) → **Mening tasklarim**.
 7. Bobur (`900000105`) → **Mobil ilova** → to'g'ridan-to'g'ri "Mijoz bilan" chat ochiladi, menyuda faqat "Loyihalar". Xabar yozing → Aziz bo'lib kiring, **Mijoz bilan** bo'limida javob bering. Jasur'da bu bo'lim yo'q.
-8. Jasur → **Mobil ilova** → **Insidentlar** → "🚨 Insident ochish" (SEV1). Aziz → **Dashboard** tepasida qizil karta → insidentni oching → "🙋 Men olaman", yangilanish yozing, "Kuzatuvda", "Hal qilindi" (sabab va yechim bilan). Xronologiya o'zi yoziladi.
+8. Jasur → **Mobil ilova** → **Insidentlar** → "🚨 Insident ochish" (SEV1). Aziz → **Dashboard** tepasida qizil karta → insidentni oching → "🙋 Men olaman", yangilanish yozing, "Kuzatuvda", "Hal qilindi" (sabab va yechim bilan). Xronologiya o'zi yoziladi. Shu panelda **"+ Task yaratish"**: tuzatish ishini Jasur'ga bering — prioritet darajadan to'ladi, task board'da "🚨 INC-1" belgisi bilan chiqadi.
 9. Telegram qismi uchun: `docs/media/liveportal-demo.mp4` ning oxirgi sahnasi yoki taqdimotning Telegram slaydi.
 
 Demo ma'lumot namoyish davomida o'zgaradi (task Done bo'ladi, izoh qo'shiladi) — bu normal.

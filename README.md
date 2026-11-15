@@ -84,7 +84,7 @@ Jonli namoyish (demo jamoa, kirish ID'lari, o'chirish buyrug'i): [docs/demo.md](
 | `PATCH`/`DELETE /projects/:projectId/members/:userId` | `project.member.manage`; o'zini o'zgartirib bo'lmaydi |
 | `GET /workspace/members` | `team.view` (xodimlar; mijoz ko'rmaydi) |
 | `GET /projects/:projectId/tasks` (`?assignee=me`, `?statusId=`) | `task.view` (mijozda yo'q) |
-| `POST /projects/:projectId/tasks` | `task.create`; `assigneeIds` (10 tagacha mas'ul) berilsa `task.assign` ham. Mas'ullar faqat loyihadagi xodimlar (`task.view` bor), mijozga task berilmaydi |
+| `POST /projects/:projectId/tasks` | `task.create`; `assigneeIds` (10 tagacha mas'ul) berilsa `task.assign` ham. Mas'ullar faqat loyihadagi xodimlar (`task.view` bor), mijozga task berilmaydi. `incidentId` berilsa, task insidentga bog'lanadi (`incident.view` kerak) va insident xronologiyasiga yoziladi |
 | `GET /projects/:projectId/tasks/:taskRef` | `task.view`; task id yoki raqami (`LP-12` uchun `12`), izohlar bilan |
 | `PATCH /projects/:projectId/tasks/:taskRef` | maydon bo'yicha: `task.update`, `task.assign` (`assigneeIds` — to'liq ro'yxat); Done'ga o'tkazish yoki qaytarish `task.close` |
 | `POST` / `DELETE /projects/:projectId/tasks/:taskRef/claim` | "Men olaman" / "Taskdan chiqish": loyiha a'zosi o'zini mas'ullarga qo'shadi yoki chiqaradi, `task.update` yetarli |
@@ -95,7 +95,7 @@ Jonli namoyish (demo jamoa, kirish ID'lari, o'chirish buyrug'i): [docs/demo.md](
 | `GET`/`POST /projects/:projectId/client-chat`, `PATCH .../client-chat/:messageId` | "Mijoz bilan" chat: `message.external.read` / `.write` — mijoz (loyiha roli `guest`, nomi "Mijoz") va teamlead/admin. Dasturchi ko'rmaydi |
 | `GET /projects/:projectId/incidents` (`?status=open\|resolved\|all`) | `incident.view`; hal qilinmaganlari oldin, eng og'ir daraja birinchi |
 | `POST /projects/:projectId/incidents` | `incident.manage`; `title`, `description`, `severity` (SEV1–SEV4), `ownerId` (faqat xodim), `startedAt`. Raqam loyiha ichida: INC-1, INC-2… |
-| `GET`/`PATCH /projects/:projectId/incidents/:ref` | ko'rish `incident.view`, o'zgartirish `incident.manage`: holat (Ochiq → Tekshirilmoqda → Kuzatuvda → Hal qilindi), daraja, mas'ul, sabab va yechim. Har o'zgarish xronologiyaga yoziladi |
+| `GET`/`PATCH /projects/:projectId/incidents/:ref` | ko'rish `incident.view`, o'zgartirish `incident.manage`: holat (Ochiq → Tekshirilmoqda → Kuzatuvda → Hal qilindi), daraja, mas'ul, sabab va yechim. Har o'zgarish xronologiyaga yoziladi. GET insidentdan yaratilgan tasklarni (`tasks`) ham qaytaradi |
 | `POST /projects/:projectId/incidents/:ref/updates` | `incident.manage`; xronologiyaga qo'lda yangilanish |
 | `GET /files/:id?exp&sig` | imzolangan havola (1 soat). Faqat haqiqiy PNG/JPEG/GIF/WEBP brauzerda ochiladi, qolgani yuklab olinadi |
 | `GET /dashboard` | `dashboard.view_all`: hal qilinmagan insidentlar, loyihalar progressi, kechikkan tasklar, odamlar yuklamasi, bu hafta yopilganlar |
@@ -106,7 +106,7 @@ Loyihadagi ruxsat = workspace roli + loyiha roli. **Mijoz**: workspace roli `cli
 
 | Hodisa | Kimga |
 |---|---|
-| Task berildi | yangi qo'shilgan mas'ullarga (tugmalar: ▶️ Boshladim, 👀 Review'ga, Ochish) |
+| Task berildi | yangi qo'shilgan mas'ullarga (tugmalar: ▶️ Boshladim, 👀 Review'ga, Ochish); insidentdan bo'lsa, "🚨 Insidentdan: INC-1 · …" qatori bilan |
 | Taskni o'zi oldi | muallifga: "🙋 Jasur taskni oldi" |
 | Izohda @mention | belgilangan odamga |
 | Izoh | mas'ullar va muallifga (shu izohda mention qilinganlarga emas) |

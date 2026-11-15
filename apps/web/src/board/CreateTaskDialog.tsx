@@ -14,7 +14,27 @@ const CLOSED: StatusCategory[] = ['DONE', 'CANCELED']
  * Bitrix24 uslubidagi task yaratish: nom, tavsif, mas'ul (jamoadan bitta odam), muddat (sana + ixtiyoriy soat),
  * prioritet va ustun. Mas'ul tanlash faqat task.assign ruxsati bo'lsa ko'rinadi.
  */
-export function CreateTaskDialog({ project, statusId, onClose }: { project: ProjectDetail; statusId?: string; onClose: () => void }) {
+/** Insidentdan task: oyna oldindan to'ldiriladi va task insidentga bog'lanadi. */
+export interface TaskFromIncident {
+  id: string
+  key: string
+  title: string
+  priority: Priority
+}
+
+export function CreateTaskDialog({
+  project,
+  statusId,
+  incident,
+  onClose,
+  onCreated,
+}: {
+  project: ProjectDetail
+  statusId?: string
+  incident?: TaskFromIncident
+  onClose: () => void
+  onCreated?: (task: Task) => void
+}) {
   const queryClient = useQueryClient()
   const roleTitle = useRoleTitle()
   const can = (p: string) => project.myPermissions.includes(p)
@@ -26,7 +46,7 @@ export function CreateTaskDialog({ project, statusId, onClose }: { project: Proj
   const toggle = (id: string) => setAssigneeIds((ids) => (ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id]))
   const [dueDate, setDueDate] = useState('')
   const [dueTime, setDueTime] = useState('')
-  const [priority, setPriority] = useState<Priority>('MEDIUM')
+  const [priority, setPriority] = useState<Priority>(incident?.priority ?? 'MEDIUM')
   const [status, setStatus] = useState(statusId ?? openStatuses[0]?.id ?? '')
 
   const create = useMutation({
@@ -41,11 +61,13 @@ export function CreateTaskDialog({ project, statusId, onClose }: { project: Proj
           dueTime: dueDate && dueTime ? dueTime : undefined,
           priority,
           statusId: status || undefined,
+          incidentId: incident?.id,
         }),
       }),
-    onSuccess: () => {
+    onSuccess: (task) => {
       void queryClient.invalidateQueries({ queryKey: keys.tasks(project.id) })
       void queryClient.invalidateQueries({ queryKey: ['my-tasks'] })
+      onCreated?.(task)
       onClose()
     },
   })
@@ -58,6 +80,11 @@ export function CreateTaskDialog({ project, statusId, onClose }: { project: Proj
   return (
     <Modal open onClose={onClose} title={`Yangi task · ${project.key}`}>
       <form onSubmit={submit} className="space-y-4">
+        {incident && (
+          <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-800">
+            🚨 <b>{incident.key}</b> insidentidan: {incident.title}
+          </p>
+        )}
         <input
           data-autofocus
           required
@@ -89,7 +116,7 @@ export function CreateTaskDialog({ project, statusId, onClose }: { project: Proj
               >
                 Hech kim (o‘zlari oladi)
               </button>
-              {project.members.map((m) => (
+              {project.members.filter((m) => !m.isClient).map((m) => (
                 <button
                   key={m.userId}
                   type="button"
