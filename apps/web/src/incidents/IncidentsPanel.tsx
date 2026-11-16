@@ -4,6 +4,8 @@ import { Avatar, Button, ErrorText } from '../components/ui'
 import { formatDateTime } from '../labels'
 import { useIncidents } from '../queries'
 import type { Incident, ProjectDetail } from '../types'
+import { usePageTour } from '../onboarding/state'
+import { incidentsTour, TOURS } from '../onboarding/tours'
 import { CreateIncidentDialog } from './CreateIncidentDialog'
 import { incidentDuration, SEVERITY_INFO, STATUS_INFO } from './labels'
 
@@ -47,6 +49,7 @@ export function IncidentsPanel({ project, userId }: { project: ProjectDetail; us
   const [filter, setFilter] = useState<Filter>('open')
   const [creating, setCreating] = useState(false)
   const canManage = project.myPermissions.includes('incident.manage') && project.status !== 'ARCHIVED'
+  usePageTour(TOURS.incidents, incidentsTour((p) => project.myPermissions.includes(p)), !incidents.isPending)
 
   const all = incidents.data ?? []
   const counts = { open: all.filter((i) => i.status !== 'RESOLVED').length, resolved: all.filter((i) => i.status === 'RESOLVED').length, all: all.length }
@@ -55,8 +58,12 @@ export function IncidentsPanel({ project, userId }: { project: ProjectDetail; us
   return (
     <section className="mx-auto max-w-7xl space-y-3 px-4">
       <div className="flex flex-wrap items-center gap-2">
-        {canManage && <Button onClick={() => setCreating(true)}>🚨 Insident ochish</Button>}
-        <div className="flex gap-1 rounded-lg bg-slate-100 p-1" role="tablist" aria-label="Insidentlar filtri">
+        {canManage && (
+          <Button data-tour="incident-new" onClick={() => setCreating(true)}>
+            🚨 Insident ochish
+          </Button>
+        )}
+        <div data-tour="incident-filters" className="flex gap-1 rounded-lg bg-slate-100 p-1" role="tablist" aria-label="Insidentlar filtri">
           {FILTERS.map((f) => (
             <button
               key={f.id}

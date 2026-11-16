@@ -82,6 +82,7 @@ Jonli namoyish (demo jamoa, kirish ID'lari, o'chirish buyrug'i): [docs/demo.md](
 | `PATCH /projects/:projectId` | `project.update`; arxivlash uchun `project.archive` ham |
 | `POST /projects/:projectId/members` | `project.member.manage`; o'zidan yuqori rol berib bo'lmaydi |
 | `PATCH`/`DELETE /projects/:projectId/members/:userId` | `project.member.manage`; o'zini o'zgartirib bo'lmaydi. Chiqarilgan odam shu loyiha tasklari va insidentlaridagi mas'ullikdan ham olinadi |
+| `POST /auth/me/onboarding` | `{ tour }` — yo'riqnoma (walkthrough) ko'rildi; `GET /auth/me` dagi `onboarding` ro'yxatiga qo'shiladi, boshqa qurilmada qayta chiqmaydi |
 | `GET /workspace/members` | `team.view` (xodimlar; mijoz ko'rmaydi). Har qatorda `canManage` — joriy odam uni o'zgartira oladimi |
 | `PATCH /workspace/members/:userId` | `member.role.assign`; workspace rolini o'zgartirish. O'zini, o'zidan yuqori roldagini o'zgartirib va o'zidan yuqori rol berib bo'lmaydi; oxirgi rahbar qoladi |
 | `DELETE /workspace/members/:userId` | `member.remove` (admin, rahbar); chiqarish: sessiyalar yopiladi, barcha loyihalar, tasklar va insidentlardagi mas'ullikdan olinadi, navbatdagi Telegram xabarlari bekor. Yozganlari tarixda qoladi. Javob: nechta loyiha/task/insidentdan olingani |
@@ -105,6 +106,8 @@ Jonli namoyish (demo jamoa, kirish ID'lari, o'chirish buyrug'i): [docs/demo.md](
 | `GET /dashboard` | `dashboard.view_all`: hal qilinmagan insidentlar, loyihalar progressi, kechikkan tasklar, odamlar yuklamasi, bu hafta yopilganlar |
 
 Loyihadagi ruxsat = workspace roli + loyiha roli. **Mijoz**: workspace roli `client` (ruxsatsiz, "Jamoa" sahifasida "Mijoz" deb taklif qilinadi) + loyihada `guest`. U faqat o'zi qo'shilgan loyihalarni va ulardagi "Mijoz bilan" chatni ko'radi: board, tasklar, ichki chat, jamoa ro'yxati yopiq. Arxivdagi loyihada task yaratib ham, izoh yozib ham bo'lmaydi (409).
+
+**Yo'riqnoma (onboarding).** Har sahifada birinchi kirganda walkthrough: element yoritiladi, yonida qisqa tushuntirish (Keyingi / Orqaga / O'tkazib yuborish, ← → Esc). Rolga qarab: xodim — loyihalar, menyu, Telegram bot; loyiha ichida — bo'limlar, yangi task, filtrlar, ustunlar, task kartasi, jamoa; insidentlar; mijoz — faqat chatga qanday yozish. Ruxsat yo'q element qadami tashlab ketiladi. Sarlavhadagi "?" — joriy sahifa yo'riqnomasini qayta ochadi. Kod: `apps/web/src/onboarding/` (`tours.ts` — matnlar, `data-tour="..."` — maqsad elementlar).
 
 **Telegram bildirishnomalari:**
 

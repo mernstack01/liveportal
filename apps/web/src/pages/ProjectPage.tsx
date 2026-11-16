@@ -5,6 +5,8 @@ import { api, ApiError } from '../api'
 import { Board } from '../board/Board'
 import { ChatPanel } from '../chat/ChatPanel'
 import { IncidentsPanel } from '../incidents/IncidentsPanel'
+import { usePageTour } from '../onboarding/state'
+import { clientProjectTour, TOURS } from '../onboarding/tours'
 import { MembersDialog } from '../components/MembersDialog'
 import { Avatar, Badge, ErrorText, Spinner } from '../components/ui'
 import { formatDay, PROJECT_STATUS_LABELS, PROJECT_STATUS_STYLES } from '../labels'
@@ -53,6 +55,12 @@ function StatusControl({ project }: { project: ProjectDetail }) {
 }
 
 type ProjectTab = 'board' | 'incidents' | 'chat' | 'client'
+
+/** Mijoz loyihani birinchi ochganda: chatga qanday yozishni ko'rsatadi. */
+function ClientProjectTour() {
+  usePageTour(TOURS.clientProject, clientProjectTour(), true)
+  return null
+}
 
 export function ProjectPage({ tab = 'board' }: { tab?: ProjectTab }) {
   const { projectId = '' } = useParams()
@@ -104,6 +112,7 @@ export function ProjectPage({ tab = 'board' }: { tab?: ProjectTab }) {
           )}
         </div>
         <button
+          data-tour="project-members"
           onClick={() => setMembersOpen(true)}
           className="flex items-center gap-2 rounded-lg bg-white px-3 py-2 text-sm shadow-sm ring-1 ring-slate-200 hover:ring-slate-400"
         >
@@ -119,7 +128,7 @@ export function ProjectPage({ tab = 'board' }: { tab?: ProjectTab }) {
       </div>
 
       {tabs.length > 1 && (
-        <nav className="mx-auto flex max-w-7xl gap-1 px-4" aria-label="Loyiha bo‘limlari">
+        <nav data-tour="project-tabs" className="mx-auto flex max-w-7xl gap-1 px-4" aria-label="Loyiha bo‘limlari">
           {tabs.map((t) => (
             <NavLink
               key={t.id}
@@ -144,6 +153,7 @@ export function ProjectPage({ tab = 'board' }: { tab?: ProjectTab }) {
       ) : (
         <div className="px-4">
           <ChatPanel key={tab} project={p} userId={me.id} kind={tab === 'client' ? 'client' : 'internal'} />
+          {tab === 'client' && !can('message.internal.read') && <ClientProjectTour />}
         </div>
       )}
       {membersOpen && <MembersDialog project={p} userId={me.id} onClose={() => setMembersOpen(false)} />}

@@ -10,6 +10,7 @@ import { CurrentUser, Public } from './decorators.js';
 import { verifyLoginWidget, verifyMiniAppInitData } from './telegram-verify.js';
 
 export const REFRESH_COOKIE = 'lp_refresh';
+const onboardingSchema = z.object({ tour: z.string().regex(/^[a-z0-9-]{1,40}$/, 'Yo‘riqnoma nomi noto‘g‘ri') });
 const COOKIE_PATH = '/api/v1/auth';
 
 const miniAppSchema = z.object({ initData: z.string().min(1).max(4096) });
@@ -79,6 +80,13 @@ export class AuthController {
   @Get('me')
   me(@CurrentUser() user: AuthUser) {
     return this.auth.me(user.id);
+  }
+
+  /** Yo'riqnoma (walkthrough) ko'rildi yoki o'tkazib yuborildi: boshqa qurilmada ham qayta chiqmaydi. */
+  @Post('me/onboarding')
+  @HttpCode(204)
+  async onboardingSeen(@Body() body: unknown, @CurrentUser() user: AuthUser) {
+    await this.auth.markOnboarding(user.id, parse(onboardingSchema, body).tour);
   }
 
   @Public()

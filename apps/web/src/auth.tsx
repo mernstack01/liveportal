@@ -6,6 +6,8 @@ export interface Me {
   name: string
   telegramUsername: string | null
   avatarUrl: string | null
+  /** Ko'rib bo'lingan yo'riqnomalar (walkthrough). */
+  onboarding: string[]
   workspaces: { id: string; name: string; slug: string; role: string; permissions: string[] }[]
 }
 

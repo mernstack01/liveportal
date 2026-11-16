@@ -5,14 +5,17 @@ import { Badge, Button, ErrorText, Spinner } from '../components/ui'
 import { formatDay, isOverdue, PROJECT_STATUS_LABELS, PROJECT_STATUS_STYLES } from '../labels'
 import { useRoleTitle } from '../roles'
 import { useMe } from '../me'
-import { useProjects } from '../queries'
+import { useProjects, useRoles } from '../queries'
+import { usePageTour } from '../onboarding/state'
+import { clientWelcomeTour, TOURS, welcomeTour } from '../onboarding/tours'
 import type { ProjectSummary } from '../types'
 
-function ProjectCard({ project }: { project: ProjectSummary }) {
+function ProjectCard({ project, tour }: { project: ProjectSummary; tour?: boolean }) {
   const roleLabel = useRoleTitle()
   const late = project.status !== 'COMPLETED' && project.status !== 'ARCHIVED' && isOverdue(project.dueDate)
   return (
     <Link
+      data-tour={tour ? 'project-card' : undefined}
       to={`/projects/${project.id}`}
       className="group flex flex-col gap-3 rounded-xl bg-white p-4 shadow-sm ring-1 ring-slate-200 transition hover:ring-slate-400"
     >
@@ -34,11 +37,19 @@ function ProjectCard({ project }: { project: ProjectSummary }) {
 }
 
 export function ProjectsPage() {
-  const { can } = useMe()
+  const { me, can } = useMe()
+  const canManageRoles = useRoles().data?.canManage ?? false
   const [archived, setArchived] = useState(false)
   const [creating, setCreating] = useState(false)
   const projects = useProjects(archived)
   const canCreate = can('project.create')
+  // Birinchi kirish yo'riqnomasi: mijozga — o'zining qisqa varianti.
+  const isClient = !can('team.view')
+  usePageTour(
+    isClient ? TOURS.clientWelcome : TOURS.welcome,
+    isClient ? clientWelcomeTour(me.name) : welcomeTour(me.name, can, canManageRoles),
+    !!projects.data,
+  )
 
   return (
     <main className="mx-auto max-w-7xl space-y-5 px-4 py-6">
@@ -52,7 +63,11 @@ export function ProjectsPage() {
             <input type="checkbox" checked={archived} onChange={(e) => setArchived(e.target.checked)} className="size-4 rounded border-slate-300" />
             Arxiv bilan
           </label>
-          {canCreate && <Button onClick={() => setCreating(true)}>+ Yangi loyiha</Button>}
+          {canCreate && (
+            <Button data-tour="new-project" onClick={() => setCreating(true)}>
+              + Yangi loyiha
+            </Button>
+          )}
         </div>
       </div>
 
@@ -72,8 +87,8 @@ export function ProjectsPage() {
         </div>
       )}
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {projects.data?.map((p) => (
-          <ProjectCard key={p.id} project={p} />
+        {projects.data?.map((p, i) => (
+          <ProjectCard key={p.id} project={p} tour={i === 0} />
         ))}
       </div>
 

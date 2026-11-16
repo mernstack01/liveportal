@@ -97,6 +97,7 @@ export class AuthService {
       name: user.name,
       telegramUsername: user.telegramUsername,
       avatarUrl: user.avatarUrl,
+      onboarding: user.onboarding,
       workspaces: user.workspaces.map((m) => ({
         id: m.workspace.id,
         name: m.workspace.name,
@@ -105,6 +106,13 @@ export class AuthService {
         permissions: m.role.permissions,
       })),
     };
+  }
+
+  /** Takrorlansa ham bitta yozuv; ro'yxat cheksiz o'smasin (yo'riqnomalar soni oz). */
+  async markOnboarding(userId: string, tour: string): Promise<void> {
+    await this.prisma.$executeRaw`
+      UPDATE "User" SET "onboarding" = array_append("onboarding", ${tour})
+      WHERE id = ${userId} AND NOT (${tour} = ANY("onboarding")) AND cardinality("onboarding") < 50`;
   }
 
   private async issueTokens(userId: string, userAgent?: string): Promise<IssuedTokens> {

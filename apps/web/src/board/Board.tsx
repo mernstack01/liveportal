@@ -18,6 +18,8 @@ import { api } from '../api'
 import { Avatar, Badge, Button, ErrorText } from '../components/ui'
 import { CreateTaskDialog } from './CreateTaskDialog'
 import { formatDue, humanError, isOverdue, PRIORITY_LABELS, PRIORITY_STYLES, TASK_TYPES } from '../labels'
+import { usePageTour } from '../onboarding/state'
+import { projectTour, TOURS } from '../onboarding/tours'
 import { keys, useTasks } from '../queries'
 import type { Priority, ProjectDetail, StatusCategory, Task, TaskType, WorkflowStatus } from '../types'
 
@@ -105,12 +107,13 @@ function TaskCard({ task, overlay = false }: { task: Task; overlay?: boolean }) 
   )
 }
 
-function DraggableCard({ task, disabled }: { task: Task; disabled: boolean }) {
+function DraggableCard({ task, disabled, tour }: { task: Task; disabled: boolean; tour?: boolean }) {
   const navigate = useNavigate()
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: task.id, disabled })
   const open = () => void navigate(`tasks/${task.number}`)
   return (
     <li
+      data-tour={tour ? 'task-card' : undefined}
       ref={setNodeRef}
       {...listeners}
       {...attributes}
@@ -135,16 +138,20 @@ function Column({
   canAdd,
   canDrag,
   onAdd,
+  tour,
 }: {
   status: WorkflowStatus
   tasks: Task[]
   canAdd: boolean
   onAdd: () => void
   canDrag: boolean
+  /** Yo'riqnoma: birinchi ustun va undagi (yoki boshqa) birinchi karta. */
+  tour?: { column: boolean; cardId: string | null }
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: status.id })
   return (
     <section
+      data-tour={tour?.column ? 'board-column' : undefined}
       ref={setNodeRef}
       className={`flex w-72 shrink-0 snap-start flex-col rounded-xl bg-slate-100 p-2 transition-colors ${isOver ? 'bg-slate-200 ring-2 ring-slate-400' : ''}`}
     >
@@ -155,7 +162,7 @@ function Column({
       </header>
       <ul className="flex min-h-16 flex-1 flex-col gap-2">
         {tasks.map((t) => (
-          <DraggableCard key={t.id} task={t} disabled={!canDrag} />
+          <DraggableCard key={t.id} task={t} disabled={!canDrag} tour={tour?.cardId === t.id} />
         ))}
       </ul>
       {canAdd && (
@@ -218,6 +225,9 @@ export function Board({ project, userId }: { project: ProjectDetail; userId: str
     // eslint-disable-next-line react-hooks/exhaustive-deps -- filtrlar URL'dan, qatorlar orqali kuzatiladi
   }, [tasks.data, project.statuses, filters.q, filters.type, filters.priority, filters.who, userId])
   const shown = columns.reduce((n, c) => n + c.tasks.length, 0)
+  // Yo'riqnoma ko'rsatadigan karta: ochiq ustunlardagi birinchi task.
+  const tourCardId = columns.find((c) => !CLOSED.includes(c.status.category) && c.tasks.length > 0)?.tasks[0]?.id ?? null
+  usePageTour(TOURS.project, projectTour(can), !tasks.isPending)
   const selectClass = 'rounded-md border border-slate-200 bg-white px-2 py-1.5 text-sm text-slate-700 outline-none hover:border-slate-300 focus:border-slate-500'
 
   const move = useMutation({
@@ -258,11 +268,12 @@ export function Board({ project, userId }: { project: ProjectDetail; userId: str
     <div className="mx-auto max-w-7xl space-y-3">
       <div className="flex flex-wrap items-center gap-3 px-4">
         {!archived && can('task.create') && (
-          <Button onClick={() => setCreatingIn(null)} className="py-1.5">
+          <Button data-tour="new-task" onClick={() => setCreatingIn(null)} className="py-1.5">
             + Yangi task
           </Button>
         )}
         <input
+          data-tour="board-filters"
           type="search"
           aria-label="Qidirish"
           value={filters.q}
@@ -329,6 +340,7 @@ export function Board({ project, userId }: { project: ProjectDetail; userId: str
               canDrag={canDrag}
               onAdd={() => setCreatingIn(status.id)}
               canAdd={!archived && can('task.create') && (!CLOSED.includes(status.category) || can('task.close'))}
+              tour={{ column: status.id === columns[0]?.status.id, cardId: tourCardId }}
             />
           ))}
         </div>

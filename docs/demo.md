@@ -12,7 +12,7 @@ pnpm infra:up
 pnpm dev
 ```
 
-Brauzerda http://localhost:5173 → "Lokal kirish" maydoniga Telegram ID.
+Brauzerda http://localhost:5173 → "Lokal kirish" maydoniga Telegram ID. Har bir demo odam birinchi kirganda yo'riqnoma (walkthrough) ko'radi; qayta ko'rish — sarlavhadagi "?".
 
 | Kim | Telegram ID | Rol | Nimani ko'rsatish qulay |
 |---|---|---|---|

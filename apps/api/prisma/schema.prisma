@@ -22,6 +22,7 @@ model User {
   telegramId       BigInt?  @unique
   telegramUsername String?
   avatarUrl        String?
+  onboarding       String[] @default([]) // ko'rib bo'lingan yo'riqnomalar (walkthrough): 'welcome', 'project', ...
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 

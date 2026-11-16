@@ -250,7 +250,7 @@ export function ChatPanel({ project, userId, kind = 'internal' }: { project: Pro
       </div>
 
       {canWrite ? (
-        <form onSubmit={submit} className="relative border-t border-slate-100 bg-white p-3">
+        <form data-tour="chat-composer" onSubmit={submit} className="relative border-t border-slate-100 bg-white p-3">
           {suggestions.length > 0 && (
             <ul role="listbox" aria-label="Kimni belgilash" className="absolute bottom-full left-3 z-10 mb-1 w-64 overflow-hidden rounded-md bg-white shadow-lg ring-1 ring-slate-200">
               {suggestions.map((m) => (
