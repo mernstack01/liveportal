@@ -1,0 +1,23 @@
+# Umumiy server varianti: 80/443 ni boshqa (umumiy) Caddy egallagan, u saytlarni nomi bo'yicha tarqatadi.
+# Bu fayl compose.prod.yml ustiga qo'yiladi:
+#   docker compose -f compose.prod.yml -f compose.shared.yml up -d --build
+# - bizning caddy port ochmaydi, ichkarida :80 da (HTTP) ishlaydi;
+# - umumiy Caddy tarmog'iga `liveportal-web` nomi bilan ulanadi;
+# - HTTPS sertifikatini umumiy Caddy oladi (uning Caddyfile'iga bitta blok qo'shiladi, deploy/README.md).
+# .env da DOMAIN — ochiq manzil (masalan liveportal.169-58-220-22.sslip.io): WEB_ORIGIN shundan olinadi.
+
+services:
+  caddy:
+    environment:
+      # Ichki Caddy uchun sayt manzili: faqat HTTP, sertifikatsiz.
+      DOMAIN: ":80"
+    ports: !reset []
+    networks:
+      default:
+      edge:
+        aliases: [liveportal-web]
+
+networks:
+  edge:
+    external: true
+    name: ${SHARED_PROXY_NETWORK:-sayxunteamtest_default}
