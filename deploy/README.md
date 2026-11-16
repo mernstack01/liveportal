@@ -9,6 +9,8 @@ Internet ──443──► caddy ──/api/*──► api ──► postgres
 
 Bu to'plam 2026-11-14 da lokal kompyuterda `DOMAIN=localhost` bilan yig'ilib, ishga tushirilib tekshirilgan: health, SPA manzillari, HTTPS'ga yo'naltirish, xavfsizlik sarlavhalari, production'da lokal kirish yopiqligi, taklif CLI, qayta ishga tushish, zaxira va undan tiklash.
 
+2026-11-16 da qayta tekshirildi (chat fayllari, mijoz kanali, insidentlar, Jira funksiyalari, xodimlarni boshqarishdan keyin): bo'sh bazaga 15 ta migration va seed (7 ta rol), health, SPA manzillari, lokal kirish yopiq (404), rahbar taklifi CLI, Caddy orqali 3 MB fayl yuklash va imzolangan havola bilan olish, API konteyneri qayta yaratilganda fayllar saqlanishi, `backup.sh` (baza + fayllar).
+
 ## 0. Nima kerak
 
 | Narsa | Izoh |
