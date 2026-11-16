@@ -101,6 +101,20 @@ crontab -e
 
 Har kuni 03:00 da `deploy/backups/` ga yoziladi: baza (`liveportal-*.sql.gz`) va chat fayllari (`uploads-*.tar.gz`), 14 kundan eskisi o'chadi. Haftada bir marta bitta faylni serverdan tashqariga (kompyuter yoki bulut) ko'chiring. Tiklash buyrug'i `backup.sh` ning boshida yozilgan.
 
+## Umumiy server varianti (80/443 boshqa Caddy'da)
+
+Hozirgi production shunday: server 169.58.220.22 da bir nechta loyiha bor, 80/443 ni umumiy Caddy (`/opt/SayxunTeamTest/Caddyfile`) egallagan va saytlarni nomi bo'yicha tarqatadi. LivePortal o'z Caddy'sini port ochmasdan, umumiy tarmoqqa `liveportal-web` nomi bilan ulaydi:
+
+```bash
+cd /opt/liveportal/deploy
+docker compose -f compose.prod.yml -f compose.shared.yml up -d --build
+```
+
+- `.env` da `DOMAIN=liveportal.169-58-220-22.sslip.io` (ochiq manzil, WEB_ORIGIN shundan).
+- Umumiy Caddyfile oxirida `liveportal.169-58-220-22.sslip.io { reverse_proxy liveportal-web:80 ... }` bloki bor. Fayl bind mount: faqat `>>` bilan qo'shing (inode o'zgarmasin), keyin `docker exec sayxunteamtest-caddy-1 caddy validate ...` va `caddy reload`. O'zgartirishdan oldin zaxira nusxa.
+- Serverda GitHub deploy kaliti yo'q: yangilash uchun kod `git bundle` bilan yuboriladi (yoki deploy kalitini qo'shib `git pull`).
+- Domen olinganda: `.env` dagi `DOMAIN` va umumiy Caddyfile'dagi blok nomi almashtiriladi, BotFather `/setdomain` yangilanadi.
+
 ## Kundalik ishlar
 
 | Nima | Buyruq (`/opt/liveportal/deploy` ichida) |
