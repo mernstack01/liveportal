@@ -112,14 +112,42 @@ docker compose -f compose.prod.yml -f compose.shared.yml up -d --build
 
 - `.env` da `DOMAIN=liveportal.169-58-220-22.sslip.io` (ochiq manzil, WEB_ORIGIN shundan).
 - Umumiy Caddyfile oxirida `liveportal.169-58-220-22.sslip.io { reverse_proxy liveportal-web:80 ... }` bloki bor. Fayl bind mount: faqat `>>` bilan qo'shing (inode o'zgarmasin), keyin `docker exec sayxunteamtest-caddy-1 caddy validate ...` va `caddy reload`. O'zgartirishdan oldin zaxira nusxa.
-- Serverda GitHub deploy kaliti yo'q: yangilash uchun kod `git bundle` bilan yuboriladi (yoki deploy kalitini qo'shib `git pull`).
+- Serverda GitHub deploy kaliti yo'q: kod `git bundle` bilan keladi ("Avtomatik deploy" bo'limi).
 - Domen olinganda: `.env` dagi `DOMAIN` va umumiy Caddyfile'dagi blok nomi almashtiriladi, BotFather `/setdomain` yangilanadi.
+
+## Avtomatik deploy (GitHub Actions)
+
+`itliveacademycompany/liveportal` reposining `main` branchiga push bo'lsa:
+
+1. **Tekshiruv** — lint, API build, unit va e2e testlar, web build. Xato bo'lsa, shu yerda to'xtaydi, serverga hech narsa chiqmaydi. PR'larda ham ishlaydi.
+2. **Deploy** — kod `git bundle` sifatida SSH orqali serverga boradi (server GitHub'ga ulanmaydi), `/usr/local/bin/liveportal-deploy` ishga tushadi:
+   baza zaxirasi (`/opt/liveportal-backups/pre-deploy-*.sql.gz`, oxirgi 20 tasi) → kod almashadi → `up -d --build --wait` → `https://$DOMAIN/api/v1/health/ready`.
+   Ishga tushmasa yoki health o'tmasa, oldingi versiya avtomatik qaytariladi. Migratsiyalar orqaga qaytmaydi, shuning uchun ular faqat qo'shuvchi bo'lsin (ustun o'chirish — ikki bosqichda).
+3. Log: serverda `/var/log/liveportal-deploy.log`, GitHub'da Actions → CI/CD.
+
+Shaxsiy nusxa (`mernstack01/liveportal`) ga push faqat tekshiruvni ishga tushiradi.
+
+**Bir martalik sozlash:**
+
+- Serverda (root):
+  ```bash
+  install -m 755 /opt/liveportal/deploy/server/liveportal-deploy /usr/local/bin/liveportal-deploy
+  # authorized_keys ga (kalit faqat shu skriptni ishga tushira oladi):
+  # restrict,command="/usr/local/bin/liveportal-deploy" ssh-ed25519 AAAA... github-actions-liveportal
+  ```
+  Skript repodan avtomatik yangilanmaydi (kirish nuqtasi o'zgarmas tursin): o'zgartirilsa, `install` qayta bajariladi.
+- GitHub → repo Settings → Secrets and variables → Actions (repo **admin** huquqi kerak):
+  - `DEPLOY_HOST` — `169.58.220.22`
+  - `DEPLOY_SSH_KEY` — yuqoridagi kalitning yopiq qismi
+  - `DEPLOY_KNOWN_HOSTS` — `ssh-keyscan -t ed25519 169.58.220.22` natijasi
+
+Qo'lda qayta chiqarish: Actions → CI/CD → Run workflow (main).
 
 ## Kundalik ishlar
 
 | Nima | Buyruq (`/opt/liveportal/deploy` ichida) |
 |---|---|
-| Yangilash | `git pull && docker compose -f compose.prod.yml up -d --build` |
+| Yangilash | `main` ga push (yuqoridagi bo'lim). Qo'lda: Actions → Run workflow |
 | Loglar | `docker compose -f compose.prod.yml logs -f api` |
 | Holat | `docker compose -f compose.prod.yml ps` |
 | Qayta ishga tushirish | `docker compose -f compose.prod.yml restart api` |

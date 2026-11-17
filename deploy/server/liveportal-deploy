@@ -1,0 +1,80 @@
+#!/usr/bin/env bash
+# Serverdagi deploy skripti. GitHub Actions uni SSH orqali chaqiradi (.github/workflows/ci-cd.yml).
+# O'rnatish (bir marta, deploy/README.md "Avtomatik deploy"):
+#   install -m 755 deploy/server/liveportal-deploy /usr/local/bin/liveportal-deploy
+#   authorized_keys:  restrict,command="/usr/local/bin/liveportal-deploy" ssh-ed25519 AAAA... github-actions-liveportal
+# Shu kalit bilan boshqa hech narsa qilib bo'lmaydi: faqat shu skript ishlaydi.
+#
+# Kirish: stdin — git bundle, SSH buyrug'i — commit SHA (40 belgi).
+# Ketma-ketlik: tekshirish → baza zaxirasi → kodni almashtirish → build va ishga tushirish → health.
+# Xato bo'lsa, oldingi versiya qaytariladi (migratsiyalar orqaga qaytmaydi — ular faqat qo'shuvchi bo'lsin).
+set -euo pipefail
+
+APP=/opt/liveportal
+BACKUPS=/opt/liveportal-backups
+KEEP_BACKUPS=20
+LOG=/var/log/liveportal-deploy.log
+COMPOSE=(docker compose -f compose.prod.yml -f compose.shared.yml)
+
+exec > >(tee -a "$LOG") 2>&1
+log() { echo "$(date '+%F %T') $*"; }
+
+SHA="${SSH_ORIGINAL_COMMAND:-}"
+if ! [[ "$SHA" =~ ^[0-9a-f]{40}$ ]]; then
+  log "Rad etildi: commit SHA kutilgan, kelgani: '${SHA:0:60}'"
+  exit 2
+fi
+
+exec 9>/run/liveportal-deploy.lock
+flock -n 9 || { log "Boshqa deploy ketmoqda"; exit 3; }
+
+TMP=$(mktemp -d)
+trap 'rm -rf "$TMP"' EXIT
+# 100 MB dan katta bundle kutilmaydi (repo ~5 MB).
+head -c 104857600 > "$TMP/release.bundle"
+
+cd "$APP"
+git bundle verify -q "$TMP/release.bundle"
+git fetch -q "$TMP/release.bundle" HEAD
+if [ "$(git rev-parse FETCH_HEAD)" != "$SHA" ]; then
+  log "Rad etildi: bundle ichidagi commit $SHA emas"
+  exit 4
+fi
+PREV=$(git rev-parse HEAD)
+log "Deploy boshlandi: ${PREV:0:7} → ${SHA:0:7}"
+
+cd "$APP/deploy"
+DOMAIN=$(sed -n 's/^DOMAIN=//p' .env | tr -d '"'"'"' ')
+[ -n "$DOMAIN" ] || { log "deploy/.env da DOMAIN yo'q"; exit 5; }
+
+# Migratsiyadan oldin baza zaxirasi.
+mkdir -p "$BACKUPS" && chmod 700 "$BACKUPS"
+DUMP="$BACKUPS/pre-deploy-$(date +%Y%m%d-%H%M%S)-${PREV:0:7}.sql.gz"
+"${COMPOSE[@]}" exec -T postgres pg_dump -U liveportal --clean --if-exists liveportal | gzip > "$DUMP"
+log "Zaxira: $DUMP ($(du -h "$DUMP" | cut -f1))"
+ls -1t "$BACKUPS"/pre-deploy-*.sql.gz | tail -n +$((KEEP_BACKUPS + 1)) | xargs -r rm --
+
+healthy() {
+  for _ in $(seq 1 20); do
+    curl -fsS --max-time 10 "https://$DOMAIN/api/v1/health/ready" > /dev/null 2>&1 && return 0
+    sleep 3
+  done
+  return 1
+}
+
+up() { "${COMPOSE[@]}" up -d --build --remove-orphans --wait --wait-timeout 300; }
+
+rollback() {
+  log "XATO: oldingi versiyaga (${PREV:0:7}) qaytarilmoqda"
+  git -C "$APP" reset -q --hard "$PREV"
+  if up && healthy; then log "Oldingi versiya tiklandi"; else log "DIQQAT: oldingi versiya ham ishga tushmadi"; fi
+  exit 1
+}
+
+git -C "$APP" reset -q --hard "$SHA"
+up || rollback
+healthy || rollback
+
+# Eski (tegsiz) image'lar disk to'ldirmasin.
+docker image prune -f > /dev/null
+log "Tayyor: ${SHA:0:7} ishlayapti — https://$DOMAIN"

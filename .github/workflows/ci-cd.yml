@@ -1,0 +1,88 @@
+# CI/CD: har push va PR da tekshiruv; kompaniya reposining main'iga push bo'lsa — serverga chiqarish.
+# Server tomoni: deploy/server/liveportal-deploy (qanday o'rnatilgani — deploy/README.md, "Avtomatik deploy").
+name: CI/CD
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Lint, build, testlar
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_USER: liveportal
+          POSTGRES_PASSWORD: liveportal_ci
+          POSTGRES_DB: liveportal
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U liveportal -d liveportal"
+          --health-interval 5s --health-timeout 3s --health-retries 20
+    env:
+      # E2e testlar shundan `liveportal_test` bazasini o'zi yaratadi.
+      DATABASE_URL: postgresql://liveportal:liveportal_ci@localhost:5432/liveportal
+      JWT_SECRET: ci-only-secret-not-used-anywhere-else-0123456789
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Umumiy paket va Prisma client
+        run: |
+          pnpm --filter @liveportal/shared build
+          pnpm --filter @liveportal/api db:generate
+      - run: pnpm lint
+      - name: API build (TypeScript tekshiruvi)
+        run: pnpm --filter @liveportal/api build
+      - name: Unit testlar
+        run: pnpm --filter @liveportal/api test
+      - name: E2e testlar
+        run: pnpm --filter @liveportal/api test:e2e
+      - name: Web build
+        run: pnpm --filter @liveportal/web build
+
+  deploy:
+    name: Serverga chiqarish
+    needs: test
+    # Faqat kompaniya reposi: shaxsiy nusxadagi push serverga tegmaydi.
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && github.repository == 'itliveacademycompany/liveportal'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    # Ikki deploy bir vaqtda ketmaydi; navbatdagisi kutadi.
+    concurrency:
+      group: production-deploy
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: SSH kalit
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          test -n "$DEPLOY_SSH_KEY" || { echo "::error::DEPLOY_SSH_KEY secret yo'q (deploy/README.md)"; exit 1; }
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key && chmod 600 ~/.ssh/deploy_key
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > ~/.ssh/known_hosts
+      - name: Kodni serverga yuborish va ishga tushirish
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+        run: |
+          # Server GitHub'ga ulanmaydi: kod git bundle sifatida SSH orqali boradi.
+          # Kalit serverda faqat deploy skriptini ishga tushira oladi (authorized_keys: command=...).
+          git bundle create /tmp/release.bundle HEAD
+          ssh -i ~/.ssh/deploy_key -o IdentitiesOnly=yes -o BatchMode=yes -o ServerAliveInterval=30 \
+            "root@$DEPLOY_HOST" "$GITHUB_SHA" < /tmp/release.bundle
