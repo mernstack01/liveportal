@@ -2,6 +2,7 @@
 export const EVENT_TYPES = [
   /** Workspace xodimi: roli o'zgardi yoki chiqarildi (entityType 'user'). */
   'member.role_changed',
+  'member.extra_roles_changed',
   'member.removed',
   'project.created',
   'project.member_added',

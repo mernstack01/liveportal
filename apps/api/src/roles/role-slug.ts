@@ -1,5 +1,5 @@
 /** Tizim rollari nomlari: yaratilgan rol ular bilan to'qnashmasligi kerak. */
-export const RESERVED_ROLE_NAMES = new Set(['owner', 'admin', 'member', 'teamlead', 'developer', 'guest', 'mentor', 'client']);
+export const RESERVED_ROLE_NAMES = new Set(['owner', 'admin', 'member', 'teamlead', 'developer', 'guest', 'mentor', 'client', 'sales']);
 
 /** "QA muhandis" → "qa_muhandis". O'zbekcha belgilar (o‘, g‘, ’) tashlab yuboriladi. */
 export function roleSlug(title: string): string {

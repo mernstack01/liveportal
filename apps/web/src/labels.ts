@@ -8,6 +8,7 @@ export const ROLE_LABELS: Record<string, string> = {
   developer: 'Dasturchi',
   guest: 'Mijoz',
   client: 'Mijoz',
+  sales: 'Savdo',
 }
 export const roleLabel = (role: string | null | undefined) => (role ? (ROLE_LABELS[role] ?? role) : '—')
 

@@ -17,6 +17,8 @@ export interface Member extends Person {
   isClient?: boolean
   /** Jamoa ro'yxatida: shu odamni men o'zgartira yoki chiqara olamanmi. */
   canManage?: boolean
+  /** Jamoa ro'yxatida: qo'shimcha workspace rollari (masalan "sales"). */
+  extraRoles?: string[]
 }
 
 export interface ProjectSummary {

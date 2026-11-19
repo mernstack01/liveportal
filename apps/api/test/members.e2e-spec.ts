@@ -70,7 +70,9 @@ describe('Xodimlarni boshqarish (e2e)', () => {
     await prisma.project.deleteMany({ where: { id: projectId } });
     await prisma.invite.deleteMany({ where: { createdById: { in: userIds } } });
     await prisma.session.deleteMany({ where: { userId: { in: userIds } } });
+    await prisma.workspaceMemberRole.deleteMany({ where: { userId: { in: userIds } } });
     await prisma.workspaceMember.deleteMany({ where: { userId: { in: userIds } } });
+    await prisma.role.deleteMany({ where: { name: `kassa_${run.toLowerCase()}` } });
     await prisma.user.deleteMany({ where: { id: { in: userIds } } });
     await app.close();
   });
@@ -97,6 +99,44 @@ describe('Xodimlarni boshqarish (e2e)', () => {
     await http().patch(member('lead')).set(as('owner')).send({ role: 'member' }).expect(200);
   });
 
+  it('qo‘shimcha rollar: "Savdo" ruxsati asosiy rolga qo‘shiladi; asosiy va qo‘shimcha rollar aralashmaydi', async () => {
+    const extra = (w: Who) => `${member(w)}/extra-roles`;
+    await http().put(extra('dev')).set(as('lead')).send({ roles: ['sales'] }).expect(403);
+    await http().put(extra('dev')).set(as('admin')).send({ roles: ['admin'] }).expect(400); // asosiy rol
+    await http().put(extra('dev')).set(as('admin')).send({ roles: ['teamlead'] }).expect(400); // loyiha roli
+    await http().patch(member('dev')).set(as('admin')).send({ role: 'sales' }).expect(400); // qo'shimcha rol asosiy bo'lolmaydi
+    await http().post('/api/v1/invites').set(as('admin')).send({ role: 'sales' }).expect(403);
+
+    const res = await http().put(extra('dev')).set(as('admin')).send({ roles: ['sales'] }).expect(200);
+    expect(res.body).toEqual({ userId: users.dev.id, extraRoles: ['sales'] });
+    const me = await http().get('/api/v1/auth/me').set(as('dev')).expect(200);
+    expect(me.body.workspaces[0]).toMatchObject({ role: 'member', extraRoles: ['sales'] });
+    expect(me.body.workspaces[0].permissions).toEqual(expect.arrayContaining(['deal.manage', 'team.view', 'project.create']));
+    const list = await http().get('/api/v1/workspace/members').set(as('admin')).expect(200);
+    expect(list.body.find((m: { userId: string }) => m.userId === users.dev.id).extraRoles).toEqual(['sales']);
+
+    // Pul nazorati faqat rahbarda.
+    const adminMe = await http().get('/api/v1/auth/me').set(as('admin')).expect(200);
+    expect(adminMe.body.workspaces[0].permissions).not.toEqual(expect.arrayContaining(['payment.confirm']));
+    const ownerMe = await http().get('/api/v1/auth/me').set(as('owner')).expect(200);
+    expect(ownerMe.body.workspaces[0].permissions).toEqual(expect.arrayContaining(['deal.view_all', 'deal.approve', 'payment.confirm']));
+
+    // Rahbar bergan moliya rolini admin bera ham, ola ham, o'sha odamni boshqara ham olmaydi.
+    const workspaceId = (await prisma.workspace.findUniqueOrThrow({ where: { slug: 'itlive' } })).id;
+    await prisma.role.create({ data: { workspaceId, name: `kassa_${run.toLowerCase()}`, title: 'Kassa', scope: 'WORKSPACE', permissions: ['payment.confirm'] } });
+    await http().put(extra('dev2')).set(as('admin')).send({ roles: [`kassa_${run.toLowerCase()}`] }).expect(403);
+    await http().put(extra('dev2')).set(as('owner')).send({ roles: ['sales', `kassa_${run.toLowerCase()}`] }).expect(200);
+    await http().put(extra('dev2')).set(as('admin')).send({ roles: ['sales'] }).expect(403);
+    await http().put(extra('dev2')).set(as('owner')).send({ roles: [] }).expect(200);
+
+    // Mijozga aylantirilsa, qo'shimcha rollar olinadi va boshqa berilmaydi.
+    await http().put(extra('dev2')).set(as('admin')).send({ roles: ['sales'] }).expect(200);
+    await http().patch(member('dev2')).set(as('admin')).send({ role: 'client' }).expect(200);
+    expect(await prisma.workspaceMemberRole.count({ where: { userId: users.dev2.id } })).toBe(0);
+    await http().put(extra('dev2')).set(as('admin')).send({ roles: ['sales'] }).expect(400);
+    await http().patch(member('dev2')).set(as('admin')).send({ role: 'member' }).expect(200);
+  });
+
   it('chiqarish: loyihalar, tasklar, insidentdan olinadi; sessiya yopiladi; endi hech narsa ochilmaydi', async () => {
     await prisma.session.create({ data: { userId: users.dev.id, tokenHash: `e2e-${run}-${Math.random()}`, expiresAt: new Date(Date.now() + 86_400_000) } });
     await http().delete(member('dev')).set(as('lead')).expect(403);
@@ -106,6 +146,7 @@ describe('Xodimlarni boshqarish (e2e)', () => {
     expect(res.body).toEqual({ userId: users.dev.id, tasks: 1, projects: 1, incidents: 1 });
 
     expect(await prisma.session.count({ where: { userId: users.dev.id, revokedAt: null } })).toBe(0);
+    expect(await prisma.workspaceMemberRole.count({ where: { userId: users.dev.id } })).toBe(0);
     await http().get('/api/v1/auth/me').set(as('dev')).expect(401);
     await http().get('/api/v1/projects').set(as('dev')).expect(403);
 

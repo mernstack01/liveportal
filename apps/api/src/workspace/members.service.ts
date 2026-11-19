@@ -1,4 +1,6 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { isPrimaryRole } from '@liveportal/shared';
+import { memberPermissions } from '../auth/access.service.js';
 import type { WorkspaceContext } from '../auth/auth.types.js';
 import { PrismaService } from '../db/prisma.service.js';
 import { recordEvent } from '../events/outbox.js';
@@ -21,6 +23,7 @@ export class MembersService {
         userId: true,
         joinedAt: true,
         role: { select: { name: true, permissions: true } },
+        extraRoles: { select: { role: { select: { name: true, permissions: true } } }, orderBy: { assignedAt: 'asc' } },
         user: { select: { name: true, telegramUsername: true, avatarUrl: true } },
       },
     });
@@ -31,8 +34,9 @@ export class MembersService {
       telegramUsername: m.user.telegramUsername,
       avatarUrl: m.user.avatarUrl,
       role: m.role.name,
+      extraRoles: m.extraRoles.map((r) => r.role.name),
       joinedAt: m.joinedAt,
-      canManage: managing && m.userId !== actorId && this.covers(workspace, m.role.permissions),
+      canManage: managing && m.userId !== actorId && this.covers(workspace, memberPermissions(m)),
     }));
   }
 
@@ -40,12 +44,15 @@ export class MembersService {
     const member = await this.manageable(workspace, actorId, userId);
     const role = await this.prisma.role.findUnique({ where: { workspaceId_name: { workspaceId: workspace.id, name: roleName } } });
     if (!role || role.scope !== 'WORKSPACE') throw new BadRequestException(`«${roleName}» degan workspace roli yo‘q`);
+    if (!isPrimaryRole(role.name)) throw new BadRequestException(`«${role.title ?? role.name}» — qo‘shimcha rol, uni asosiy rol qilib bo‘lmaydi`);
     if (!this.covers(workspace, role.permissions)) throw new ForbiddenException('O‘zingizdan yuqori rol bera olmaysiz');
     if (role.id === member.roleId) return { userId, role: role.name };
     await this.assertOwnerRemains(workspace, member.role.name, role.name);
 
     await this.prisma.$transaction(async (tx) => {
       await tx.workspaceMember.update({ where: { workspaceId_userId: { workspaceId: workspace.id, userId } }, data: { roleId: role.id } });
+      // Mijoz xodim emas: qo'shimcha rollari (masalan "Savdo") olinadi.
+      if (role.name === 'client') await tx.workspaceMemberRole.deleteMany({ where: { workspaceId: workspace.id, userId } });
       await recordEvent(tx, {
         workspaceId: workspace.id,
         type: 'member.role_changed',
@@ -56,6 +63,40 @@ export class MembersService {
       });
     });
     return { userId, role: role.name };
+  }
+
+  /** Qo'shimcha workspace rollari (masalan "Savdo"): to'liq ro'yxat bilan almashtiriladi. Mijozga berilmaydi. */
+  async setExtraRoles(workspace: WorkspaceContext, actorId: string, userId: string, roleNames: string[]) {
+    const member = await this.manageable(workspace, actorId, userId);
+    if (member.role.name === 'client' && roleNames.length > 0) throw new BadRequestException('Mijozga qo‘shimcha rol berilmaydi');
+    const names = [...new Set(roleNames)];
+    const roles = await this.prisma.role.findMany({ where: { workspaceId: workspace.id, scope: 'WORKSPACE', name: { in: names } } });
+    for (const name of names) {
+      const role = roles.find((r) => r.name === name);
+      if (!role || isPrimaryRole(role.name)) throw new BadRequestException(`«${name}» degan qo‘shimcha rol yo‘q`);
+      if (!this.covers(workspace, role.permissions)) throw new ForbiddenException('O‘zingizdan yuqori rol bera olmaysiz');
+    }
+    const before = member.extraRoles.map((r) => r.role.name).sort();
+    const after = names.sort();
+    // Olib tashlanayotgan rol ham joriy foydalanuvchi qo'lidan oshmasin (masalan admin rahbar bergan moliya rolini ololmaydi).
+    for (const r of member.extraRoles) {
+      if (!after.includes(r.role.name) && !this.covers(workspace, r.role.permissions)) throw new ForbiddenException('Bu rolni faqat yuqoriroq rol oladi');
+    }
+    if (before.join() === after.join()) return { userId, extraRoles: after };
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.workspaceMemberRole.deleteMany({ where: { workspaceId: workspace.id, userId, roleId: { notIn: roles.map((r) => r.id) } } });
+      await tx.workspaceMemberRole.createMany({ data: roles.map((r) => ({ workspaceId: workspace.id, userId, roleId: r.id })), skipDuplicates: true });
+      await recordEvent(tx, {
+        workspaceId: workspace.id,
+        type: 'member.extra_roles_changed',
+        actorId,
+        entityType: 'user',
+        entityId: userId,
+        payload: { from: before, to: after },
+      });
+    });
+    return { userId, extraRoles: after };
   }
 
   /**
@@ -98,10 +139,10 @@ export class MembersService {
     if (userId === actorId) throw new ForbiddenException('O‘zingizni o‘zgartira yoki chiqara olmaysiz');
     const member = await this.prisma.workspaceMember.findUnique({
       where: { workspaceId_userId: { workspaceId: workspace.id, userId } },
-      include: { role: true, user: { select: { name: true } } },
+      include: { role: true, extraRoles: { include: { role: true } }, user: { select: { name: true } } },
     });
     if (!member) throw new NotFoundException('Bu odam workspace’da yo‘q');
-    if (!this.covers(workspace, member.role.permissions)) throw new ForbiddenException('O‘zingizdan yuqori roldagi odamni o‘zgartira olmaysiz');
+    if (!this.covers(workspace, memberPermissions(member))) throw new ForbiddenException('O‘zingizdan yuqori roldagi odamni o‘zgartira olmaysiz');
     return member;
   }
 

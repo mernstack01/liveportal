@@ -8,7 +8,8 @@ export interface Me {
   avatarUrl: string | null
   /** Ko'rib bo'lingan yo'riqnomalar (walkthrough). */
   onboarding: string[]
-  workspaces: { id: string; name: string; slug: string; role: string; permissions: string[] }[]
+  /** `role` — asosiy rol; `extraRoles` — qo'shimcha (masalan "sales"); `permissions` — hammasining birlashmasi. */
+  workspaces: { id: string; name: string; slug: string; role: string; extraRoles: string[]; permissions: string[] }[]
 }
 
 type AuthState = { status: 'loading' } | { status: 'anonymous'; error?: string } | { status: 'authenticated'; me: Me }

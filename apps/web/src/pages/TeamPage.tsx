@@ -6,7 +6,7 @@ import { Avatar, Button, ErrorText, Modal, Spinner } from '../components/ui'
 import { formatDateTime, formatDay, humanError } from '../labels'
 import { useMe } from '../me'
 import { keys, useRoles, useWorkspaceMembers } from '../queries'
-import { useRoleTitle } from '../roles'
+import { PRIMARY_ROLES, useRoleTitle } from '../roles'
 import type { Member } from '../types'
 
 interface PendingInvite {
@@ -100,6 +100,61 @@ function PendingInvites() {
   )
 }
 
+/**
+ * Qo'shimcha rollar (masalan "Savdo"): boshqara oladigan odamga — bosib yoqiladigan/o'chiriladigan belgilar,
+ * qolganlarga — faqat berilganlari.
+ */
+function ExtraRoles({
+  member,
+  options,
+  title,
+  busy,
+  onChange,
+}: {
+  member: Member
+  options: { name: string; title: string }[]
+  title: (name: string) => string
+  busy: boolean
+  onChange: (roles: string[]) => void
+}) {
+  const current = member.extraRoles ?? []
+  if (options.length === 0) {
+    if (current.length === 0) return null
+    return (
+      <p className="mt-1 flex flex-wrap gap-1">
+        {current.map((r) => (
+          <span key={r} className="rounded bg-violet-50 px-1.5 py-0.5 text-[11px] font-medium text-violet-700 ring-1 ring-violet-200">
+            {title(r)}
+          </span>
+        ))}
+      </p>
+    )
+  }
+  return (
+    <p className="mt-1 flex flex-wrap items-center gap-1" aria-label={`${member.name} qo‘shimcha rollari`}>
+      {options.map((r) => {
+        const on = current.includes(r.name)
+        return (
+          <button
+            key={r.name}
+            type="button"
+            aria-pressed={on}
+            disabled={busy}
+            aria-label={`${member.name}: «${r.title}» rolini ${on ? 'olib qo‘yish' : 'berish'}`}
+            onClick={() => onChange(on ? current.filter((x) => x !== r.name) : [...current, r.name])}
+            className={`rounded px-1.5 py-0.5 text-[11px] font-medium ring-1 transition ${
+              on ? 'bg-violet-600 text-white ring-violet-600 hover:bg-violet-700' : 'bg-white text-slate-500 ring-slate-200 hover:text-slate-800 hover:ring-slate-300'
+            }`}
+          >
+            {on ? '✓ ' : '+ '}
+            {r.title}
+          </button>
+        )
+      })}
+    </p>
+  )
+}
+
 export function TeamPage() {
   const queryClient = useQueryClient()
   const { me, workspace, can } = useMe()
@@ -110,7 +165,17 @@ export function TeamPage() {
   const [error, setError] = useState<string | null>(null)
   // Faqat o'zimdan oshmaydigan workspace rollari (server ham shuni tekshiradi).
   const myPermissions = workspace?.permissions ?? []
-  const workspaceRoles = (useRoles().data?.roles ?? []).filter((r) => r.scope === 'WORKSPACE' && r.permissions.every((p) => myPermissions.includes(p)))
+  const assignable = (useRoles().data?.roles ?? []).filter((r) => r.scope === 'WORKSPACE' && r.permissions.every((p) => myPermissions.includes(p)))
+  const workspaceRoles = assignable.filter((r) => PRIMARY_ROLES.includes(r.name))
+  const extraOptions = assignable.filter((r) => !PRIMARY_ROLES.includes(r.name))
+
+  const setExtraRoles = useMutation({
+    mutationFn: ({ userId, roles }: { userId: string; roles: string[] }) =>
+      api(`/workspace/members/${userId}/extra-roles`, { method: 'PUT', body: JSON.stringify({ roles }) }),
+    onMutate: () => setError(null),
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: keys.workspaceMembers }),
+    onError: (e) => setError(humanError(e)),
+  })
 
   const changeRole = useMutation({
     mutationFn: ({ userId, role }: { userId: string; role: string }) => api(`/workspace/members/${userId}`, { method: 'PATCH', body: JSON.stringify({ role }) }),
@@ -158,6 +223,13 @@ export function TeamPage() {
                   <p className="truncate text-xs text-slate-500">
                     {m.telegramUsername ? `@${m.telegramUsername}` : 'Telegram username yo‘q'} · {formatDay(m.joinedAt)} dan
                   </p>
+                  <ExtraRoles
+                    member={m}
+                    options={canRole && m.role !== 'client' ? extraOptions : []}
+                    title={roleLabel}
+                    busy={setExtraRoles.isPending}
+                    onChange={(roles) => setExtraRoles.mutate({ userId: m.userId, roles })}
+                  />
                 </div>
                 {canRole ? (
                   <select

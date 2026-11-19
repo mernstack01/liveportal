@@ -36,6 +36,14 @@ export const PERMISSIONS = [
   'message.internal.write',
   'message.external.read',
   'message.external.write',
+  /** Kelishuvlar (savdo): o'zi mas'ul bo'lgan kelishuvlarni yuritish, to'lov kiritish. "Savdo" roli. */
+  'deal.manage',
+  /** Barcha kelishuvlar va pul (rahbar). */
+  'deal.view_all',
+  /** Kelishuvni loyihaga aylantirishga "ha" berish (rahbar). */
+  'deal.approve',
+  /** Naqd to'lovni tasdiqlash (rahbar). */
+  'payment.confirm',
 ] as const;
 
 export type Permission = (typeof PERMISSIONS)[number];
@@ -71,7 +79,16 @@ export const PROJECT_PERMISSIONS: readonly { key: Permission; label: string; gro
 ];
 
 const ALL = PERMISSIONS;
-const ADMIN = PERMISSIONS.filter((p) => p !== 'workspace.owner');
+/** Pul va kelishuvlar ustidan nazorat: faqat rahbarda (admin'da yo'q). */
+export const FINANCE_PERMISSIONS: readonly Permission[] = ['deal.view_all', 'deal.approve', 'payment.confirm'];
+const ADMIN = PERMISSIONS.filter((p) => p !== 'workspace.owner' && !FINANCE_PERMISSIONS.includes(p));
+
+/**
+ * Asosiy workspace rollari: har xodimda aynan bittasi. Qolgan workspace rollari (masalan "Savdo") —
+ * qo'shimcha: xodimga istalgancha beriladi, ruxsatlar asosiy rol bilan qo'shiladi.
+ */
+export const PRIMARY_ROLES = ['owner', 'admin', 'member', 'client'] as const;
+export const isPrimaryRole = (name: string) => (PRIMARY_ROLES as readonly string[]).includes(name);
 
 export const SYSTEM_ROLES: readonly SystemRole[] = [
   { name: 'owner', title: 'Rahbar', scope: 'WORKSPACE', permissions: ALL },
@@ -79,6 +96,8 @@ export const SYSTEM_ROLES: readonly SystemRole[] = [
   { name: 'member', title: 'A’zo', scope: 'WORKSPACE', permissions: ['team.view', 'project.create'] },
   // Tashqi odam: faqat o'zi qo'shilgan loyihalarning "Mijoz bilan" chati (loyiha roli 'guest' orqali).
   { name: 'client', title: 'Mijoz', scope: 'WORKSPACE', permissions: [] },
+  // Qo'shimcha rol: kelishuvlar bilan ishlash (faqat o'zi mas'ul bo'lganlari).
+  { name: 'sales', title: 'Savdo', scope: 'WORKSPACE', permissions: ['deal.manage'] },
   {
     name: 'teamlead',
     title: 'Teamlead',

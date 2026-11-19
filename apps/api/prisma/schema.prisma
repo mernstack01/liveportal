@@ -68,6 +68,7 @@ model Role {
 
   workspace        Workspace         @relation(fields: [workspaceId], references: [id])
   workspaceMembers WorkspaceMember[]
+  extraMembers     WorkspaceMemberRole[]
   projectMembers   ProjectMember[]
   invites          Invite[]
 
@@ -88,8 +89,23 @@ model WorkspaceMember {
   workspace Workspace @relation(fields: [workspaceId], references: [id])
   user      User      @relation(fields: [userId], references: [id])
   role      Role      @relation(fields: [roleId], references: [id])
+  extraRoles WorkspaceMemberRole[]
 
   @@id([workspaceId, userId])
+}
+
+/// Qo'shimcha workspace rollari (masalan "Savdo"): ruxsatlar asosiy rol bilan qo'shiladi.
+model WorkspaceMemberRole {
+  workspaceId String
+  userId      String
+  roleId      String
+  assignedAt  DateTime @default(now())
+
+  member WorkspaceMember @relation(fields: [workspaceId, userId], references: [workspaceId, userId], onDelete: Cascade)
+  role   Role            @relation(fields: [roleId], references: [id])
+
+  @@id([workspaceId, userId, roleId])
+  @@index([roleId])
 }
 
 /// Taklif havolasi: t.me/<bot>?start=inv_<token>. Faqat taklif qilingan odam tizimga kira oladi.

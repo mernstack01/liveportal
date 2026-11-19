@@ -2,6 +2,11 @@ import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/commo
 import { PrismaService } from '../db/prisma.service.js';
 import type { ProjectContext, WorkspaceContext } from './auth.types.js';
 
+/** Xodimning workspace ruxsatlari: asosiy rol + qo'shimcha rollar (birlashmasi). */
+export function memberPermissions(m: { role: { permissions: string[] }; extraRoles: { role: { permissions: string[] } }[] }): string[] {
+  return [...new Set([...m.role.permissions, ...m.extraRoles.flatMap((r) => r.role.permissions)])];
+}
+
 /**
  * Kim nimaga ruxsatli ekanini hisoblaydi. Rol nomi emas, ruxsatlar to'plami qaytadi (CLAUDE.md, 3-qoida).
  * MVP'da bitta workspace: foydalanuvchining birinchi a'zoligi olinadi.
@@ -13,11 +18,16 @@ export class AccessService {
   async workspaceFor(userId: string): Promise<WorkspaceContext> {
     const membership = await this.prisma.workspaceMember.findFirst({
       where: { userId },
-      include: { role: true },
+      include: { role: true, extraRoles: { include: { role: true } } },
       orderBy: { joinedAt: 'asc' },
     });
     if (!membership) throw new ForbiddenException('Siz workspace a’zosi emassiz');
-    return { id: membership.workspaceId, role: membership.role.name, permissions: membership.role.permissions };
+    return {
+      id: membership.workspaceId,
+      role: membership.role.name,
+      extraRoles: membership.extraRoles.map((r) => r.role.name),
+      permissions: memberPermissions(membership),
+    };
   }
 
   /**

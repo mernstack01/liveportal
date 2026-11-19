@@ -6,7 +6,11 @@ export interface AuthUser {
 
 export interface WorkspaceContext {
   id: string;
+  /** Asosiy rol (owner, admin, member, client). */
   role: string;
+  /** Qo'shimcha rollar (masalan "sales"). */
+  extraRoles: string[];
+  /** Asosiy va qo'shimcha rollar ruxsatlarining birlashmasi. */
   permissions: string[];
 }
 

@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { newToken, sha256 } from '../common/crypto.js';
 import type { Env } from '../config/env.js';
+import { memberPermissions } from './access.service.js';
 import { PrismaService } from '../db/prisma.service.js';
 import type { AccessTokenPayload } from './auth.types.js';
 import type { TelegramUser } from './telegram-verify.js';
@@ -88,7 +89,7 @@ export class AuthService {
   async me(userId: string) {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      include: { workspaces: { include: { workspace: true, role: true }, orderBy: { joinedAt: 'asc' } } },
+      include: { workspaces: { include: { workspace: true, role: true, extraRoles: { include: { role: true } } }, orderBy: { joinedAt: 'asc' } } },
     });
     // Workspace'dan chiqarilgan odam: sessiyasi yopilgan, endi kira olmaydi.
     if (!user || user.workspaces.length === 0) throw new UnauthorizedException();
@@ -103,7 +104,8 @@ export class AuthService {
         name: m.workspace.name,
         slug: m.workspace.slug,
         role: m.role.name,
-        permissions: m.role.permissions,
+        extraRoles: m.extraRoles.map((r) => r.role.name),
+        permissions: memberPermissions(m),
       })),
     };
   }

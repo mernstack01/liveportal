@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, HttpCode, Param, Patch } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, Param, Patch, Put } from '@nestjs/common';
 import { z } from 'zod';
 import type { AuthUser, WorkspaceContext } from '../auth/auth.types.js';
 import { CurrentUser, CurrentWorkspace, RequirePermission } from '../auth/decorators.js';
@@ -6,6 +6,7 @@ import { parse } from '../common/zod.js';
 import { MembersService } from './members.service.js';
 
 const changeRoleSchema = z.object({ role: z.string().min(1).max(64) });
+const extraRolesSchema = z.object({ roles: z.array(z.string().min(1).max(64)).max(20) });
 
 @Controller('workspace')
 export class WorkspaceController {
@@ -23,6 +24,13 @@ export class WorkspaceController {
   @RequirePermission('member.role.assign')
   changeRole(@Param('userId') userId: string, @Body() body: unknown, @CurrentWorkspace() workspace: WorkspaceContext, @CurrentUser() user: AuthUser) {
     return this.members.changeRole(workspace, user.id, userId, parse(changeRoleSchema, body).role);
+  }
+
+  /** Qo'shimcha rollar (masalan "Savdo"): ro'yxat to'liq almashtiriladi. */
+  @Put('members/:userId/extra-roles')
+  @RequirePermission('member.role.assign')
+  setExtraRoles(@Param('userId') userId: string, @Body() body: unknown, @CurrentWorkspace() workspace: WorkspaceContext, @CurrentUser() user: AuthUser) {
+    return this.members.setExtraRoles(workspace, user.id, userId, parse(extraRolesSchema, body).roles);
   }
 
   /** Chiqarish: sessiyalar yopiladi, loyihalar, tasklar va insidentlardagi mas'ullikdan olinadi. */

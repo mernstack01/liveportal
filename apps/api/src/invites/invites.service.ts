@@ -1,5 +1,6 @@
 import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { isPrimaryRole } from '@liveportal/shared';
 import type { TelegramUser } from '../auth/telegram-verify.js';
 import { sha256 } from '../common/crypto.js';
 import type { Env } from '../config/env.js';
@@ -37,6 +38,8 @@ export class InvitesService {
       where: { workspaceId_name: { workspaceId: args.workspaceId, name: args.roleName } },
     });
     if (!role || role.scope !== 'WORKSPACE') throw new ForbiddenException('Bunday workspace roli yo‘q');
+    // Qo'shimcha rol (masalan "Savdo") taklif bilan emas, qo'shilgandan keyin Jamoa sahifasida beriladi.
+    if (!isPrimaryRole(role.name)) throw new ForbiddenException('Taklif faqat asosiy rolga (A’zo, Admin, Mijoz, Rahbar) qilinadi');
     const escalates = role.permissions.some((p) => !args.inviterPermissions.includes(p));
     if (escalates) throw new ForbiddenException('O‘zingizdan yuqori rolga taklif qila olmaysiz');
 
