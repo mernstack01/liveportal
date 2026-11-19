@@ -147,6 +147,21 @@ export class NotificationRules implements OnModuleInit {
       this.enqueue(tx, e, 'deal_step_overdue', await dealSupervisors(tx, e.workspaceId)),
     );
 
+    // To'lovlar: naqd — rahbarga tasdiq uchun, plastik — rahbarga ma'lumot; natija — kiritgan va mas'ulga.
+    this.bus.subscribe('deal.payment_added', 'notify:payment-added', async (e, tx) => {
+      const p = e.payload as unknown as { method: string };
+      return this.enqueue(tx, e, p.method === 'CASH' ? 'payment_pending' : 'payment_received', await dealSupervisors(tx, e.workspaceId));
+    });
+    this.bus.subscribe('deal.payment_confirmed', 'notify:payment-confirmed', (e, tx) => {
+      const p = e.payload as unknown as DealPayload & { createdById: string };
+      return this.enqueue(tx, e, 'payment_confirmed', [p.createdById, p.ownerId]);
+    });
+    this.bus.subscribe('deal.payment_rejected', 'notify:payment-rejected', (e, tx) => {
+      const p = e.payload as unknown as DealPayload & { createdById: string };
+      return this.enqueue(tx, e, 'payment_rejected', [p.createdById, p.ownerId]);
+    });
+    this.bus.subscribe('deal.ready', 'notify:deal-ready', async (e, tx) => this.enqueue(tx, e, 'deal_ready', await dealSupervisors(tx, e.workspaceId)));
+
     this.bus.subscribe('user.digest', 'notify:digest', (e, tx) => this.enqueue(tx, e, 'digest', [e.entityId]));
 
     this.bus.subscribe('project.member_added', 'notify:added', (e, tx) => {

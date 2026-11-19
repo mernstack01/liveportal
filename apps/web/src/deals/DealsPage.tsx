@@ -23,7 +23,7 @@ import { dealsTour, TOURS } from '../onboarding/tours'
 import { keys, useDealOwners, useDeals } from '../queries'
 import { CreateDealDialog } from './CreateDealDialog'
 import { LostDialog } from './LostDialog'
-import { ACTIVE_STAGES, formatMoney, formatStepTime, STAGE_INFO, stepState, sumByCurrency, type Deal, type DealStage } from './labels'
+import { ACTIVE_STAGES, formatMoney, paidPercent, formatStepTime, STAGE_INFO, stepState, sumByCurrency, type Deal, type DealStage } from './labels'
 
 const STAGES: DealStage[] = [...ACTIVE_STAGES, 'WON', 'LOST']
 const STEP_STYLE = { stale: 'text-red-700 font-medium', late: 'text-red-600 font-medium', today: 'text-amber-700 font-medium', later: 'text-slate-500', none: 'text-slate-400' }
@@ -39,7 +39,14 @@ function DealCard({ deal, overlay = false }: { deal: Deal; overlay?: boolean }) 
       </div>
       <p className="text-sm font-medium leading-snug text-slate-900">{deal.title}</p>
       <p className="truncate text-xs text-slate-500">👤 {deal.clientName}</p>
-      {deal.amount && <p className="text-sm font-semibold text-slate-800">{formatMoney(deal.amount, deal.currency)}</p>}
+      {deal.amount && (
+        <p className="flex items-baseline justify-between gap-2 text-sm font-semibold text-slate-800">
+          {formatMoney(deal.amount, deal.currency)}
+          {Number(deal.paid) > 0 && <span className="text-[11px] font-medium text-emerald-700">to‘landi {paidPercent(deal)}%</span>}
+        </p>
+      )}
+      {Number(deal.pendingPayments) > 0 && <p className="text-[11px] font-medium text-amber-700">💵 naqd tasdiq kutmoqda</p>}
+      {deal.advanceReached && !closed && <p className="text-[11px] font-medium text-emerald-700">🚀 avans tushdi — loyihani boshlash mumkin</p>}
       {!closed && deal.nextStep && deal.nextStepAt && (
         <p className={`text-xs ${STEP_STYLE[state]}`} title="Keyingi qadam">
           ➡️ {deal.nextStep} · {formatStepTime(deal.nextStepAt)}

@@ -23,7 +23,7 @@ export interface CreatedInvite {
 /** Nest'dan tashqarida ham ishlaydi (CLI skript birinchi owner uchun). */
 export async function createInviteRecord(
   prisma: Pick<PrismaClient, 'role' | 'invite'>,
-  args: { workspaceId: string; roleName: string; note?: string; createdById?: string; ttlDays?: number },
+  args: { workspaceId: string; roleName: string; note?: string; createdById?: string; ttlDays?: number; projectId?: string },
 ): Promise<CreatedInvite> {
   const role = await prisma.role.findUnique({
     where: { workspaceId_name: { workspaceId: args.workspaceId, name: args.roleName } },
@@ -39,6 +39,7 @@ export async function createInviteRecord(
       roleId: role.id,
       tokenHash: sha256(token),
       note: args.note,
+      projectId: args.projectId,
       createdById: args.createdById,
       expiresAt,
     },

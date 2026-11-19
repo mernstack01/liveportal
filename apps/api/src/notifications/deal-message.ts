@@ -1,6 +1,19 @@
 import { escapeHtml, type MessageButton, type RenderedMessage } from './notification-message.js';
 
-export type DealKind = 'deal_created' | 'deal_stage' | 'deal_owner' | 'deal_due' | 'deal_step_due' | 'deal_step_overdue';
+export type DealKind =
+  | 'deal_created'
+  | 'deal_stage'
+  | 'deal_owner'
+  | 'deal_due'
+  | 'deal_step_due'
+  | 'deal_step_overdue'
+  | 'payment_pending'
+  | 'payment_received'
+  | 'payment_confirmed'
+  | 'payment_rejected'
+  | 'deal_ready';
+
+const PAYMENT_KIND: Record<string, string> = { ADVANCE: 'Avans', INTERIM: 'Oraliq to‘lov', FINAL: 'Yakuniy to‘lov' };
 
 export const DEAL_STAGE_LABELS: Record<string, string> = {
   NEW: 'Yangi so‘rov',
@@ -31,6 +44,10 @@ export interface DealMessageInput {
   };
   changes?: { stage?: { from: string | null; to: string | null }; due?: { from: string | null; to: string | null } };
   reason?: string | null;
+  /** To'lov xabarlari uchun. */
+  payment?: { id: string; amount: string; currency: string; method: string; kind: string; paidAt: string; note: string | null; rejectReason: string | null; receipts: number };
+  /** Pul holati: to'langan / kelishuv summasi, kerakli avans. */
+  money?: { paid: string; amount: string | null; advanceDue: string | null; advancePercent: number };
 }
 
 const TASHKENT = 'Asia/Tashkent';
@@ -104,6 +121,35 @@ export function renderDealMessage(input: DealMessageInput): RenderedMessage {
       if (step) lines.push(step);
       lines.push('Bajargach, natijasini yozib, yangi qadam qo‘ying.');
       break;
+    case 'payment_pending':
+    case 'payment_received':
+    case 'payment_confirmed':
+    case 'payment_rejected': {
+      const p = input.payment;
+      const title = {
+        payment_pending: '💵 Naqd to‘lov — tasdiqlang',
+        payment_received: '💳 Plastik to‘lov tushdi',
+        payment_confirmed: `✅ ${actor} naqd to‘lovni tasdiqladi`,
+        payment_rejected: `❌ ${actor} naqd to‘lovni rad etdi`,
+      }[input.kind];
+      lines.push(title, head, client);
+      if (p) {
+        lines.push(`💰 <b>${formatMoney(p.amount, p.currency)}</b> · ${PAYMENT_KIND[p.kind] ?? p.kind} · ${day(p.paidAt)}`);
+        if (input.kind === 'payment_pending' || input.kind === 'payment_received') lines.push(`Kiritdi: ${actor}${p.receipts ? ` · 📎 chek (${p.receipts})` : ''}`);
+        if (p.note) lines.push(`Izoh: ${escapeHtml(p.note)}`);
+        if (input.kind === 'payment_rejected' && p.rejectReason) lines.push(`Sabab: ${escapeHtml(p.rejectReason)}`);
+      }
+      if (input.money?.amount) lines.push(`To‘langan: ${formatMoney(input.money.paid, d.currency)} / ${formatMoney(input.money.amount, d.currency)}`);
+      break;
+    }
+    case 'deal_ready': {
+      const m = input.money;
+      lines.push('🚀 Avans tushdi — loyihani boshlaymizmi?', head, client);
+      if (m?.amount) lines.push(`To‘langan: ${formatMoney(m.paid, d.currency)} (kerak edi ${m.advancePercent}% — ${formatMoney(m.advanceDue, d.currency)})`);
+      if (owner) lines.push(owner);
+      lines.push('Kelishuvni ochib, “Loyihani boshlash” tugmasini bosing.');
+      break;
+    }
     case 'deal_step_overdue':
       lines.push('⚠️ Kelishuv qotib qoldi: keyingi qadam 24 soatdan beri bajarilmagan', head, client);
       if (owner) lines.push(owner);
@@ -111,8 +157,9 @@ export function renderDealMessage(input: DealMessageInput): RenderedMessage {
       break;
   }
 
-  const buttons: MessageButton[][] = input.webOrigin.startsWith('https://')
-    ? [[{ text: 'Ochish', webAppUrl: `${input.webOrigin.replace(/\/$/, '')}/deals/${d.number}` }]]
-    : [];
+  const buttons: MessageButton[][] = [];
+  // Naqd to'lovni rahbar Telegram'ning o'zida tasdiqlay oladi (rad etish — sabab bilan, portalda).
+  if (input.kind === 'payment_pending' && input.payment) buttons.push([{ text: '✅ Tasdiqlash', callbackData: `pay:${input.payment.id}:ok` }]);
+  if (input.webOrigin.startsWith('https://')) buttons.push([{ text: 'Ochish', webAppUrl: `${input.webOrigin.replace(/\/$/, '')}/deals/${d.number}` }]);
   return { text: lines.join('\n'), buttons };
 }

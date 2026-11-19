@@ -1,4 +1,4 @@
-import { Injectable, Logger, OnApplicationBootstrap, OnApplicationShutdown } from '@nestjs/common';
+import { HttpException, Injectable, Logger, OnApplicationBootstrap, OnApplicationShutdown } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Bot, type Context, InlineKeyboard } from 'grammy';
 import { renderDigest, renderTaskList } from '../notifications/task-list-message.js';
@@ -6,7 +6,9 @@ import { toKeyboard } from '../notifications/telegram.gateway.js';
 import { localDay } from '../tasks/due.js';
 import { openTasksFor } from '../tasks/open-tasks.js';
 import type { User } from 'grammy/types';
+import { AccessService } from '../auth/access.service.js';
 import { NOT_INVITED_MESSAGE } from '../auth/auth.service.js';
+import { DealPaymentsService } from '../deals/deal-payments.service.js';
 import type { Env } from '../config/env.js';
 import { PrismaService } from '../db/prisma.service.js';
 import { extractInviteToken } from '../invites/invite-record.js';
@@ -33,6 +35,8 @@ export class BotService implements OnApplicationBootstrap, OnApplicationShutdown
     private readonly prisma: PrismaService,
     private readonly invites: InvitesService,
     private readonly taskActions: TaskActionsService,
+    private readonly access: AccessService,
+    private readonly payments: DealPaymentsService,
   ) {}
 
   onApplicationBootstrap(): void {
@@ -139,6 +143,25 @@ export class BotService implements OnApplicationBootstrap, OnApplicationShutdown
       } catch (error) {
         if (!(error instanceof TaskActionError)) this.logger.error(`Tugma ${action} (${taskId}) xato berdi: ${String(error)}`);
         const text = error instanceof TaskActionError ? error.message : 'Xatolik yuz berdi, portal orqali urinib ko‘ring.';
+        await ctx.answerCallbackQuery({ text, show_alert: true });
+      }
+    });
+
+    // Naqd to'lov xabaridagi [✅ Tasdiqlash]: faqat `payment.confirm` ruxsati bor odam (rahbar).
+    bot.callbackQuery(/^pay:([A-Za-z0-9_-]{1,40}):ok$/, async (ctx) => {
+      const [, paymentId] = ctx.match;
+      try {
+        const user = await this.prisma.user.findUnique({ where: { telegramId: BigInt(ctx.from.id) }, select: { id: true } });
+        if (!user) throw new HttpException(NOT_INVITED_MESSAGE, 403);
+        const workspace = await this.access.workspaceFor(user.id);
+        await this.payments.confirm(workspace, user.id, paymentId);
+        await ctx.answerCallbackQuery({ text: 'Tasdiqlandi ✅' });
+        const rows = ctx.callbackQuery.message?.reply_markup?.inline_keyboard ?? [];
+        const kept = rows.map((row) => row.filter((b) => !('callback_data' in b))).filter((row) => row.length > 0);
+        await ctx.editMessageReplyMarkup({ reply_markup: { inline_keyboard: kept } }).catch(() => undefined);
+      } catch (error) {
+        if (!(error instanceof HttpException)) this.logger.error(`To‘lov ${paymentId} tasdig‘i xato berdi: ${String(error)}`);
+        const text = error instanceof HttpException ? error.message : 'Xatolik yuz berdi, portal orqali urinib ko‘ring.';
         await ctx.answerCallbackQuery({ text, show_alert: true });
       }
     });

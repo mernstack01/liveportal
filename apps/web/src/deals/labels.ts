@@ -23,6 +23,16 @@ export interface Deal {
   nextStepAt: string | null
   dueDate: string | null
   lostReason: string | null
+  /** Loyiha boshlanishi uchun avans, summadan foiz. */
+  advancePercent: number
+  /** Pul (aniq qiymat satrda): to'langan (tasdiqlangan), tasdiq kutayotgan naqd, kerakli avans, qolgan qarz. */
+  paid: string
+  pendingPayments: string
+  advanceDue: string | null
+  remaining: string | null
+  advanceReached: boolean
+  /** Yutilganda ochilgan loyiha. */
+  project: { id: string; key: string; name: string } | null
   stageChangedAt: string
   closedAt: string | null
   createdAt: string
@@ -70,7 +80,47 @@ export const ACTIVITY_KINDS = [
   { kind: 'note', label: 'Izoh', icon: '📝' },
   { kind: 'call', label: 'Qo‘ng‘iroq', icon: '📞' },
   { kind: 'meeting', label: 'Uchrashuv', icon: '🤝' },
+  { kind: 'contract', label: 'Shartnoma', icon: '📄' },
 ] as const
+
+export type PaymentMethod = 'CASH' | 'CARD'
+export type PaymentKind = 'ADVANCE' | 'INTERIM' | 'FINAL'
+export type PaymentStatus = 'PENDING' | 'CONFIRMED' | 'REJECTED'
+
+export interface Payment {
+  id: string
+  amount: string
+  currency: Currency
+  method: PaymentMethod
+  kind: PaymentKind
+  status: PaymentStatus
+  paidAt: string
+  note: string | null
+  createdBy: { userId: string; name: string } | null
+  confirmedBy: { userId: string; name: string } | null
+  confirmedAt: string | null
+  rejectReason: string | null
+  receipts: ChatAttachment[]
+  createdAt: string
+}
+
+export const PAYMENT_METHODS: Record<PaymentMethod, { label: string; icon: string; hint: string }> = {
+  CARD: { label: 'Plastik', icon: '💳', hint: 'Chek majburiy — darhol hisoblanadi' },
+  CASH: { label: 'Naqd', icon: '💵', hint: 'Rahbar tasdiqlagach hisoblanadi' },
+}
+export const PAYMENT_KINDS: Record<PaymentKind, string> = { ADVANCE: 'Avans', INTERIM: 'Oraliq', FINAL: 'Yakuniy' }
+export const PAYMENT_STATUS: Record<PaymentStatus, { label: string; badge: string }> = {
+  PENDING: { label: 'Tasdiq kutilmoqda', badge: 'bg-amber-50 text-amber-800 ring-amber-200' },
+  CONFIRMED: { label: 'Tasdiqlangan', badge: 'bg-emerald-50 text-emerald-700 ring-emerald-200' },
+  REJECTED: { label: 'Rad etilgan', badge: 'bg-red-50 text-red-700 ring-red-200' },
+}
+
+/** To'langan ulushi (0–100), summa yo'q bo'lsa null. */
+export function paidPercent(deal: Pick<Deal, 'amount' | 'paid'>): number | null {
+  const total = Number(deal.amount)
+  if (!deal.amount || !total) return null
+  return Math.min(100, Math.round((Number(deal.paid) / total) * 100))
+}
 
 /** 150000000 → "150 000 000 so‘m"; USD → "$2 500". */
 export function formatMoney(amount: string | number | null, currency: Currency): string {

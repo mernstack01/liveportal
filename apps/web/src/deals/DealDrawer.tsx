@@ -10,6 +10,8 @@ import { formatDateTime, formatDay, humanError } from '../labels'
 import { useMe } from '../me'
 import { keys, useDeal, useDealOwners } from '../queries'
 import { LostDialog } from './LostDialog'
+import { Payments } from './Payments'
+import { StartProjectBanner } from './StartProject'
 import {
   ACTIVE_STAGES,
   ACTIVITY_KINDS,
@@ -47,6 +49,7 @@ type Patch = Partial<{
   dueDate: string | null
   dueReason: string
   lostReason: string
+  advancePercent: number
 }>
 
 function Row({ label, children }: { label: string; children: ReactNode }) {
@@ -124,12 +127,58 @@ function describe(a: DealActivity, nameOf: (id: string | null) => string): React
           summani o‘zgartirdi: {moneyText(a.from)} → <b>{moneyText(a.to)}</b>
         </>
       )
+    case 'advance':
+      return (
+        <>
+          avans foizini o‘zgartirdi: {a.from}% → <b>{a.to}%</b>
+        </>
+      )
+    case 'payment':
+      return (
+        <>
+          to‘lov kiritdi: <b>{moneyText(a.to)}</b> ({a.from === 'CASH' ? 'naqd — tasdiq kutadi' : 'plastik'})
+        </>
+      )
+    case 'payment_confirmed':
+      return (
+        <>
+          naqd to‘lovni tasdiqladi: <b>{moneyText(a.to)}</b>
+        </>
+      )
+    case 'payment_rejected':
+      return (
+        <>
+          to‘lovni rad etdi: <b>{moneyText(a.to)}</b>
+        </>
+      )
+    case 'won':
+      return (
+        <>
+          loyihani boshladi: <b>{a.to}</b> 🚀
+        </>
+      )
     default:
       return null
   }
 }
-const KIND_ICON: Record<string, string> = { created: '✨', stage: '📈', owner: '👤', step: '✅', due: '📅', amount: '💰', note: '📝', call: '📞', meeting: '🤝' }
-const MANUAL = new Set(['note', 'call', 'meeting'])
+const KIND_ICON: Record<string, string> = {
+  created: '✨',
+  stage: '📈',
+  owner: '👤',
+  step: '✅',
+  due: '📅',
+  amount: '💰',
+  advance: '％',
+  payment: '💳',
+  payment_confirmed: '✅',
+  payment_rejected: '❌',
+  won: '🚀',
+  note: '📝',
+  call: '📞',
+  meeting: '🤝',
+  contract: '📄',
+}
+const MANUAL = new Set(['note', 'call', 'meeting', 'contract'])
 
 /** Keyingi qadam: hozirgisi va "Bajarildi → keyingisi" formasi (natija tarixga yoziladi). */
 function NextStep({ deal, saving, onSave }: { deal: Deal; saving: boolean; onSave: (p: Patch) => void }) {
@@ -273,7 +322,7 @@ function Amount({ deal, onSave }: { deal: Deal; onSave: (p: Patch) => void }) {
 
 function Timeline({ deal, queryRef, nameOf }: { deal: DealDetail; queryRef: string; nameOf: (id: string | null) => string }) {
   const queryClient = useQueryClient()
-  const [kind, setKind] = useState<'note' | 'call' | 'meeting'>('note')
+  const [kind, setKind] = useState<(typeof ACTIVITY_KINDS)[number]['kind']>('note')
   const [body, setBody] = useState('')
   const files = usePendingFiles()
   const fileInput = useRef<HTMLInputElement>(null)
@@ -397,6 +446,7 @@ function DealBody({ deal, queryRef }: { deal: DealDetail; queryRef: string }) {
       <InlineText key={`t${deal.title}`} label="Nomi" value={deal.title} required onSave={(title) => patch({ title })} className="w-full rounded-md px-1 py-0.5 text-lg font-semibold text-slate-900 outline-none hover:bg-slate-50 focus:bg-white focus:ring-2 focus:ring-slate-300" />
       {save.error && <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{humanError(save.error)}</p>}
 
+      <StartProjectBanner deal={deal} queryRef={queryRef} />
       <NextStep deal={deal} saving={save.isPending} onSave={patch} />
       {deal.stage === 'LOST' && (
         <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800 ring-1 ring-red-200">
@@ -463,6 +513,8 @@ function DealBody({ deal, queryRef }: { deal: DealDetail; queryRef: string }) {
           )}
         </Row>
       </div>
+
+      <Payments deal={deal} queryRef={queryRef} activities={deal.activities} onPatch={patch} />
 
       <section className="space-y-2">
         <h3 className="text-sm font-medium">Tafsilot</h3>

@@ -32,6 +32,12 @@ export const EVENT_TYPES = [
   /** Keyingi qadam vaqti keldi (mas'ulga) va 24 soat o'tib ham yangilanmadi (rahbarga). */
   'deal.step_due',
   'deal.step_overdue',
+  /** To'lov: kiritildi (naqd — tasdiq kutadi), tasdiqlandi, rad etildi (payload.paymentId). */
+  'deal.payment_added',
+  'deal.payment_confirmed',
+  'deal.payment_rejected',
+  /** Avans yetarli: rahbarga "loyihani boshlaymizmi?". */
+  'deal.ready',
   'message.posted',
   'message.external_received',
 ] as const;

@@ -34,6 +34,8 @@ model User {
   incidentUpdates   IncidentUpdate[]
   ownedDeals        Deal[]            @relation("dealOwner")
   createdDeals      Deal[]            @relation("dealCreator")
+  paymentsAdded     DealPayment[]     @relation("paymentCreator")
+  paymentsConfirmed DealPayment[]     @relation("paymentConfirmer")
   dealActivities    DealActivity[]
   reportedTasks     Task[]            @relation("reporter")
   comments          Comment[]
@@ -121,6 +123,8 @@ model Invite {
   roleId      String // workspace darajasidagi rol
   tokenHash   String    @unique // token o'zi saqlanmaydi, faqat sha256
   note        String? // kim uchun: "Aziz, backend mentor"
+  /// Mijoz taklifi: qabul qilinganda shu loyihaga "Mijoz" sifatida qo'shiladi.
+  projectId   String?
   createdById String?
   usedById    String?
   usedAt      DateTime?
@@ -131,6 +135,7 @@ model Invite {
   role      Role      @relation(fields: [roleId], references: [id])
   createdBy User?     @relation("inviteCreator", fields: [createdById], references: [id])
   usedBy    User?     @relation("inviteUser", fields: [usedById], references: [id])
+  project   Project?  @relation(fields: [projectId], references: [id])
 }
 
 /// Refresh token sessiyasi. Token o'zi emas, sha256 xeshi saqlanadi; har refresh'da almashtiriladi.
@@ -171,6 +176,8 @@ model Project {
   tasks     Task[]
   channels  Channel[]
   incidents Incident[]
+  deal      Deal?
+  invites   Invite[]
 
   @@unique([workspaceId, key])
 }
@@ -401,6 +408,7 @@ model Attachment {
   messageId        String?
   incidentUpdateId String? // insident xronologiyasidagi yangilanishga biriktirilgan
   dealActivityId   String? // kelishuv tarixidagi yozuvga (shartnoma, chek, TZ)
+  paymentId        String? // to'lov cheki
   uploaderId       String
   fileName         String // asl nomi (ko'rsatish uchun)
   mimeType         String // baytlardan aniqlangan rasm turi yoki yuklagan bergani
@@ -412,10 +420,12 @@ model Attachment {
   message        Message?        @relation(fields: [messageId], references: [id])
   incidentUpdate IncidentUpdate? @relation(fields: [incidentUpdateId], references: [id], onDelete: Cascade)
   dealActivity   DealActivity?   @relation(fields: [dealActivityId], references: [id], onDelete: Cascade)
+  payment        DealPayment?    @relation(fields: [paymentId], references: [id], onDelete: Cascade)
 
   @@index([messageId])
   @@index([incidentUpdateId])
   @@index([dealActivityId])
+  @@index([paymentId])
 }
 
 enum MessageSource {
@@ -527,6 +537,12 @@ model Deal {
   stepEscalatedAt DateTime?
   dueDate         DateTime?  @db.Date // mijoz kutayotgan topshirish sanasi; o'zgartirish — sabab bilan
   lostReason      String?
+  /// Loyiha boshlanishi uchun kerakli avans (kelishuv summasidan foiz).
+  advancePercent  Int        @default(50)
+  /// Avans yetarli bo'lganda rahbarga "loyihani boshlaymizmi?" bir marta yuboriladi.
+  readyNotifiedAt DateTime?
+  /// Yutilganda ochilgan loyiha.
+  projectId       String?    @unique
   stageChangedAt  DateTime   @default(now())
   closedAt        DateTime?
   createdAt       DateTime   @default(now())
@@ -535,7 +551,9 @@ model Deal {
   workspace  Workspace      @relation(fields: [workspaceId], references: [id])
   owner      User?          @relation("dealOwner", fields: [ownerId], references: [id])
   createdBy  User           @relation("dealCreator", fields: [createdById], references: [id])
+  project    Project?       @relation(fields: [projectId], references: [id])
   activities DealActivity[]
+  payments   DealPayment[]
 
   @@unique([workspaceId, number])
   @@index([workspaceId, stage])
@@ -583,4 +601,47 @@ model DealActivity {
   attachments Attachment[]
 
   @@index([dealId, createdAt])
+}
+
+/// Kelishuv bo'yicha to'lov. Plastik — chek bilan, darhol hisoblanadi; naqd — rahbar tasdiqlagach.
+model DealPayment {
+  id            String        @id @default(cuid())
+  dealId        String
+  amount        Decimal       @db.Decimal(14, 2)
+  currency      Currency
+  method        PaymentMethod
+  kind          PaymentKind   @default(ADVANCE)
+  status        PaymentStatus @default(PENDING)
+  paidAt        DateTime      @db.Date
+  note          String?
+  createdById   String
+  confirmedById String?
+  confirmedAt   DateTime?
+  rejectReason  String?
+  createdAt     DateTime      @default(now())
+
+  deal        Deal         @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  createdBy   User         @relation("paymentCreator", fields: [createdById], references: [id])
+  confirmedBy User?        @relation("paymentConfirmer", fields: [confirmedById], references: [id])
+  receipts    Attachment[]
+
+  @@index([dealId, status])
+  @@index([status])
+}
+
+enum PaymentMethod {
+  CASH // naqd — rahbar tasdiqlaydi
+  CARD // plastik — chek bilan, darhol
+}
+
+enum PaymentKind {
+  ADVANCE // avans
+  INTERIM // oraliq
+  FINAL // yakuniy
+}
+
+enum PaymentStatus {
+  PENDING // naqd: rahbar tasdig'ini kutmoqda
+  CONFIRMED
+  REJECTED
 }

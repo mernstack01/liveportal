@@ -4,6 +4,7 @@ import type { Env } from '../config/env.js';
 import { PrismaService } from '../db/prisma.service.js';
 import { localDay } from '../tasks/due.js';
 import { openTasksFor } from '../tasks/open-tasks.js';
+import { dealMoney } from '../deals/deals.service.js';
 import { renderDealMessage, type DealKind, type DealMessageInput } from './deal-message.js';
 import { renderIncidentMessage, type IncidentKind, type IncidentMessageInput } from './incident-message.js';
 import { renderMessage, type MessageInput, type RenderedMessage } from './notification-message.js';
@@ -162,8 +163,16 @@ export class NotificationSender implements OnApplicationBootstrap, OnApplication
     recipientId: string,
     event: { actorId: string | null; entityId: string; payload: unknown },
   ): Promise<DealMessageInput | 'empty' | null> {
-    const deal = await this.prisma.deal.findUnique({ where: { id: event.entityId }, include: { owner: { select: { name: true } } } });
+    const deal = await this.prisma.deal.findUnique({
+      where: { id: event.entityId },
+      include: { owner: { select: { name: true } }, payments: { select: { amount: true, status: true } } },
+    });
     if (!deal) return null;
+    const paymentId = (event.payload as { paymentId?: string }).paymentId;
+    const payment = paymentId ? await this.prisma.dealPayment.findUnique({ where: { id: paymentId }, include: { _count: { select: { receipts: true } } } }) : null;
+    // Navbatda turganida tasdiqlangan yoki rad etilgan bo'lsa — "tasdiqlang" endi kerak emas.
+    if (kind === 'payment_pending' && payment?.status !== 'PENDING') return 'empty';
+    const money = dealMoney(deal);
     // Navbatda turganida qadam yangilangan yoki kelishuv yopilgan bo'lsa — eslatma endi kerak emas.
     const reminder = kind === 'deal_step_due' || kind === 'deal_step_overdue';
     if (reminder && (deal.closedAt || deal.stage === 'WON' || !deal.stepRemindedAt)) return 'empty';
@@ -188,6 +197,20 @@ export class NotificationSender implements OnApplicationBootstrap, OnApplication
       },
       changes: payload.changes,
       reason: payload.reason ?? null,
+      payment: payment
+        ? {
+            id: payment.id,
+            amount: payment.amount.toString(),
+            currency: payment.currency,
+            method: payment.method,
+            kind: payment.kind,
+            paidAt: payment.paidAt.toISOString().slice(0, 10),
+            note: payment.note,
+            rejectReason: payment.rejectReason,
+            receipts: payment._count.receipts,
+          }
+        : undefined,
+      money: { paid: money.paid.toString(), amount: deal.amount?.toString() ?? null, advanceDue: money.advanceDue?.toString() ?? null, advancePercent: deal.advancePercent },
     };
   }
 

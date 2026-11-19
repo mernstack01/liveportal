@@ -103,6 +103,18 @@ export class InvitesService {
         create: { workspaceId: invite.workspaceId, userId: user.id, roleId: invite.roleId },
       });
 
+      // Mijoz taklifi (kelishuvdan loyiha ochilganda): darhol o'sha loyihaning "Mijoz bilan" chatiga.
+      if (invite.projectId) {
+        const guest = await tx.role.findUnique({ where: { workspaceId_name: { workspaceId: invite.workspaceId, name: 'guest' } } });
+        if (guest) {
+          await tx.projectMember.upsert({
+            where: { projectId_userId: { projectId: invite.projectId, userId: user.id } },
+            update: {},
+            create: { projectId: invite.projectId, userId: user.id, roleId: guest.id },
+          });
+        }
+      }
+
       return { userId: user.id, userName: name, workspaceName: invite.workspace.name, role: invite.role.name };
     });
   }

@@ -6,7 +6,9 @@ export const ACTIVE_STAGES = ['NEW', 'DISCUSSION', 'PROPOSAL', 'CONTRACT', 'ADVA
 export const DEAL_SOURCES = ['TELEGRAM', 'INSTAGRAM', 'REFERRAL', 'WEBSITE', 'CALL', 'OTHER'] as const;
 export const CURRENCIES = ['UZS', 'USD'] as const;
 /** Qo'lda yoziladigan tarix yozuvlari. */
-export const ACTIVITY_KINDS = ['note', 'call', 'meeting'] as const;
+export const ACTIVITY_KINDS = ['note', 'call', 'meeting', 'contract'] as const;
+export const PAYMENT_METHODS = ['CASH', 'CARD'] as const;
+export const PAYMENT_KINDS = ['ADVANCE', 'INTERIM', 'FINAL'] as const;
 
 const id = z.string().min(1).max(64);
 const text = (max: number) => z.string().trim().min(1).max(max);
@@ -56,6 +58,8 @@ export const updateDealSchema = z
     dueReason: z.string().trim().max(1000),
     /** "Yo'qotildi" bosqichida majburiy. */
     lostReason: z.string().trim().max(1000),
+    /** Loyiha boshlanishi uchun avans, summadan foiz (0–100). */
+    advancePercent: z.number().int().min(0).max(100),
   })
   .partial()
   .refine((d) => Object.keys(d).length > 0, 'Hech narsa o‘zgartirilmadi');
@@ -71,3 +75,29 @@ export const listDealsQuery = z.object({
   ownerId: id.optional(),
   q: z.string().trim().max(100).optional(),
 });
+
+/** Multipart (chek fayllari bilan): qiymatlar satr bo'lib keladi. */
+export const createPaymentSchema = z.object({
+  amount,
+  method: z.enum(PAYMENT_METHODS),
+  kind: z.enum(PAYMENT_KINDS).default('ADVANCE'),
+  /** Qachon to'langan (YYYY-MM-DD); berilmasa — bugun. Kelajakda bo'lmaydi. */
+  paidAt: day.refine((d) => d.getTime() <= Date.now() + 86_400_000, 'To‘lov sanasi kelajakda bo‘lmaydi').optional(),
+  note: z.string().trim().max(1000).optional(),
+});
+export type CreatePaymentDto = z.infer<typeof createPaymentSchema>;
+
+export const rejectPaymentSchema = z.object({ reason: z.string().trim().min(1).max(1000) });
+
+/** Loyihani boshlash (rahbar): kalit va nom, teamlead (berilmasa — kelishuv mas'uli), mijozga taklif havolasi. */
+export const startProjectSchema = z.object({
+  key: z
+    .string()
+    .trim()
+    .toUpperCase()
+    .regex(/^[A-Z][A-Z0-9]{1,9}$/, 'Kalit: 2–10 ta lotin harf yoki raqam, harf bilan boshlanadi'),
+  name: z.string().trim().min(1).max(200).optional(),
+  teamleadId: id.optional(),
+  inviteClient: z.boolean().default(true),
+});
+export type StartProjectDto = z.infer<typeof startProjectSchema>;

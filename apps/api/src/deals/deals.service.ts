@@ -5,11 +5,16 @@ import { PrismaService } from '../db/prisma.service.js';
 import { recordEvent } from '../events/outbox.js';
 import { FileLinksService } from '../files/file-links.service.js';
 import { attachmentRows, discardUploads, toAttachment } from '../files/uploads.js';
-import type { DealStage, Prisma } from '../generated/prisma/client.js';
+import { Prisma, type DealStage } from '../generated/prisma/client.js';
 import { ACTIVE_STAGES, type CreateDealDto, type UpdateDealDto } from './deal.dto.js';
 
 const person = { select: { id: true, name: true, telegramUsername: true, avatarUrl: true } } as const;
-const dealInclude = { owner: person, createdBy: person } satisfies Prisma.DealInclude;
+const dealInclude = {
+  owner: person,
+  createdBy: person,
+  project: { select: { id: true, key: true, name: true } },
+  payments: { select: { amount: true, status: true } },
+} satisfies Prisma.DealInclude;
 type DealRow = Prisma.DealGetPayload<{ include: typeof dealInclude }>;
 type PersonRow = DealRow['owner'];
 
@@ -21,7 +26,25 @@ const toPerson = (u: PersonRow) => (u ? { userId: u.id, name: u.name, telegramUs
 const dayString = (d: Date | null) => (d ? d.toISOString().slice(0, 10) : null);
 const money = (amount: Prisma.Decimal | string | null, currency: string) => (amount === null ? null : `${amount.toString()} ${currency}`);
 
+/**
+ * Pul holati: to'langan (tasdiqlangan), tasdiq kutayotgan (naqd), loyiha boshlanishi uchun kerakli avans va qolgan qarz.
+ * Hisob Decimal'da (kasr xatosisiz), javobda — satr.
+ */
+export function dealMoney(d: { amount: Prisma.Decimal | null; advancePercent: number; payments: { amount: Prisma.Decimal; status: string }[] }) {
+  const sum = (status: string) => d.payments.filter((p) => p.status === status).reduce((acc, p) => acc.plus(p.amount), new Prisma.Decimal(0));
+  const paid = sum('CONFIRMED');
+  const advanceDue = d.amount ? d.amount.mul(d.advancePercent).div(100).toDecimalPlaces(2) : null;
+  return {
+    paid,
+    pending: sum('PENDING'),
+    advanceDue,
+    remaining: d.amount ? Prisma.Decimal.max(d.amount.minus(paid), 0) : null,
+    advanceReached: advanceDue !== null && paid.gte(advanceDue),
+  };
+}
+
 export function toDeal(d: DealRow) {
+  const m = dealMoney(d);
   return {
     id: d.id,
     number: d.number,
@@ -41,11 +64,32 @@ export function toDeal(d: DealRow) {
     nextStepAt: d.nextStepAt,
     dueDate: dayString(d.dueDate),
     lostReason: d.lostReason,
+    advancePercent: d.advancePercent,
+    /** Pul: hammasi satrda (aniq qiymat). */
+    paid: m.paid.toString(),
+    pendingPayments: m.pending.toString(),
+    advanceDue: m.advanceDue?.toString() ?? null,
+    remaining: m.remaining?.toString() ?? null,
+    advanceReached: m.advanceReached,
+    project: d.project,
     stageChangedAt: d.stageChangedAt,
     closedAt: d.closedAt,
     createdAt: d.createdAt,
     updatedAt: d.updatedAt,
   };
+}
+
+/**
+ * Avans yetarli bo'ldimi: bo'lsa (va hali aytilmagan bo'lsa), rahbarga "loyihani boshlaymizmi?" (`deal.ready`).
+ * To'lov tasdiqlanganda, summa yoki avans foizi o'zgarganda chaqiriladi.
+ */
+export async function checkDealReady(tx: Prisma.TransactionClient, dealId: string, actorId: string | null) {
+  const deal = await tx.deal.findUniqueOrThrow({ where: { id: dealId }, include: { payments: { select: { amount: true, status: true } } } });
+  if (deal.readyNotifiedAt || !isActive(deal.stage) || !dealMoney(deal).advanceReached) return false;
+  await tx.deal.update({ where: { id: dealId }, data: { readyNotifiedAt: new Date() } });
+  // Muallif yo'q (tizim xabari): to'lovni tasdiqlagan rahbarning o'ziga ham borsin.
+  await recordEvent(tx, { workspaceId: deal.workspaceId, type: 'deal.ready', actorId: null, entityType: 'deal', entityId: dealId, payload: { number: deal.number, ownerId: deal.ownerId, triggeredBy: actorId } });
+  return true;
 }
 
 /** Kelishuvlarni ko'radigan rahbar(lar): `deal.view_all` asosiy yoki qo'shimcha rolda. */
@@ -108,7 +152,7 @@ export class DealsService {
   }
 
   async get(workspace: WorkspaceContext, userId: string, ref: string) {
-    const deal = await this.find(workspace, userId, ref);
+    const deal = await this.findVisible(workspace, userId, ref);
     const activities = await this.prisma.dealActivity.findMany({
       where: { dealId: deal.id },
       orderBy: { createdAt: 'asc' },
@@ -172,7 +216,7 @@ export class DealsService {
 
   async update(workspace: WorkspaceContext, userId: string, ref: string, dto: UpdateDealDto) {
     const { all } = this.access(workspace);
-    const current = await this.find(workspace, userId, ref);
+    const current = await this.findVisible(workspace, userId, ref);
     const data: Prisma.DealUncheckedUpdateInput = {
       title: dto.title,
       clientName: dto.clientName,
@@ -227,11 +271,17 @@ export class DealsService {
       activities.push({ kind: 'due', from: dayString(current.dueDate), to: dayString(dto.dueDate), body: dto.dueReason || null });
     }
 
+    if (dto.advancePercent !== undefined && dto.advancePercent !== current.advancePercent) {
+      data.advancePercent = dto.advancePercent;
+      activities.push({ kind: 'advance', from: String(current.advancePercent), to: String(dto.advancePercent) });
+    }
+
     const currency = dto.currency ?? current.currency;
     const amount = dto.amount !== undefined ? dto.amount : (current.amount?.toString() ?? null);
     const before = money(current.amount, current.currency);
     const after = money(amount, currency);
     if (before !== after) {
+      if (currency !== current.currency && current.payments.length > 0) throw new BadRequestException('To‘lovlar bor: valyutani o‘zgartirib bo‘lmaydi');
       data.amount = amount;
       data.currency = currency;
       changes.amount = { from: before, to: after };
@@ -253,6 +303,7 @@ export class DealsService {
           payload: { number: deal.number, ownerId: deal.ownerId, changes, reason: dto.dueReason ?? dto.lostReason ?? null },
         });
       }
+      if (data.amount !== undefined || data.advancePercent !== undefined) await checkDealReady(tx, current.id, userId);
       return deal;
     });
     return toDeal(saved);
@@ -262,7 +313,7 @@ export class DealsService {
   async addActivity(workspace: WorkspaceContext, userId: string, ref: string, kind: string, body: string, files: Express.Multer.File[] = []) {
     try {
       if (!body && files.length === 0) throw new BadRequestException('Matn yoki fayl kerak');
-      const deal = await this.find(workspace, userId, ref);
+      const deal = await this.findVisible(workspace, userId, ref);
       const attachments = await attachmentRows(files, { workspaceId: workspace.id, projectId: null, uploaderId: userId });
       const activity = await this.prisma.$transaction(async (tx) => {
         const created = await tx.dealActivity.create({
@@ -289,7 +340,7 @@ export class DealsService {
   }
 
   /** `ref` — raqam (K-12 uchun `12`) yoki id. Ko'rinmaydigan kelishuv — 404 (borligi ham bilinmasin). */
-  private async find(workspace: WorkspaceContext, userId: string, ref: string) {
+  async findVisible(workspace: WorkspaceContext, userId: string, ref: string) {
     const { all } = this.access(workspace);
     const number = /^\d+$/.test(ref) ? Number(ref) : null;
     const deal = await this.prisma.deal.findFirst({
