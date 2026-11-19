@@ -7,6 +7,7 @@ import { MAX_FILES } from '../files/uploads.js';
 import { createDealSchema, createPaymentSchema, dealActivitySchema, listDealsQuery, rejectPaymentSchema, startProjectSchema, updateDealSchema } from './deal.dto.js';
 import { DealPaymentsService } from './deal-payments.service.js';
 import { DealStartService } from './deal-start.service.js';
+import { DealsSummaryService } from './deals-summary.service.js';
 import { DealsService } from './deals.service.js';
 
 /** Kelishuvlar (savdo). Ruxsat service'da: `deal.manage` (o'zinikilar) yoki `deal.view_all` (hammasi). */
@@ -17,11 +18,18 @@ export class DealsController {
     private readonly deals: DealsService,
     private readonly payments: DealPaymentsService,
     private readonly starter: DealStartService,
+    private readonly summaries: DealsSummaryService,
   ) {}
 
   @Get()
   list(@Query() query: unknown, @CurrentWorkspace() workspace: WorkspaceContext, @CurrentUser() user: AuthUser) {
     return this.deals.list(workspace, user.id, parse(listDealsQuery, query));
+  }
+
+  /** Rahbar paneli: pul, savdo bosqichlari, unutilganlar, muddat o'zgarishlari (`deal.view_all`). */
+  @Get('summary')
+  summary(@CurrentWorkspace() workspace: WorkspaceContext) {
+    return this.summaries.summary(workspace);
   }
 
   /** Mas'ul qilish mumkin bo'lgan xodimlar (savdo ruxsati borlar). */

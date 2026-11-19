@@ -9,6 +9,7 @@ import { renderDealMessage, type DealKind, type DealMessageInput } from './deal-
 import { renderIncidentMessage, type IncidentKind, type IncidentMessageInput } from './incident-message.js';
 import { renderMessage, type MessageInput, type RenderedMessage } from './notification-message.js';
 import type { NotificationKind } from './notification-rules.js';
+import { dealDigestLines } from './deal-digest.js';
 import { renderDigest } from './task-list-message.js';
 import { TelegramGateway, TelegramPermanentError, TelegramRetryAfterError } from './telegram.gateway.js';
 
@@ -140,7 +141,12 @@ export class NotificationSender implements OnApplicationBootstrap, OnApplication
     if (kind === 'digest') {
       const tasks = await openTasksFor(this.prisma, recipientId);
       const webOrigin = this.config.get('WEB_ORIGIN', { infer: true });
-      return renderDigest(tasks, localDay(new Date()), webOrigin, true) ?? 'empty';
+      const taskPart = renderDigest(tasks, localDay(new Date()), webOrigin, true);
+      const dealPart = await dealDigestLines(this.prisma, recipientId);
+      if (dealPart.length === 0) return taskPart ?? 'empty';
+      const salesButton = webOrigin.startsWith('https://') ? [{ text: 'Savdo', webAppUrl: `${webOrigin.replace(/\/$/, '')}/deals` }] : [];
+      if (!taskPart) return { text: `☀️ <b>Xayrli tong!</b>\n\n${dealPart.join('\n\n')}`, buttons: salesButton.length ? [salesButton] : [] };
+      return { text: `${taskPart.text}\n\n${dealPart.join('\n\n')}`, buttons: [...taskPart.buttons, ...(salesButton.length ? [salesButton] : [])] };
     }
     if (event.entityType === 'incident') {
       const input = await this.buildIncident(kind as IncidentKind, event);
@@ -259,7 +265,7 @@ export class NotificationSender implements OnApplicationBootstrap, OnApplication
   ): Promise<MessageInput | null> {
     const webOrigin = this.config.get('WEB_ORIGIN', { infer: true });
     const actor = event.actorId ? await this.prisma.user.findUnique({ where: { id: event.actorId }, select: { name: true } }) : null;
-    const payload = (event.payload ?? {}) as { commentId?: string; userId?: string; role?: string };
+    const payload = (event.payload ?? {}) as { commentId?: string; userId?: string; role?: string; due?: MessageInput['due'] };
 
     if (event.entityType === 'message') {
       const message = await this.prisma.message.findUnique({
@@ -291,7 +297,7 @@ export class NotificationSender implements OnApplicationBootstrap, OnApplication
       const role = payload.role
         ? await this.prisma.role.findFirst({ where: { name: payload.role, workspace: { projects: { some: { id: project.id } } } }, select: { title: true } })
         : null;
-      return { kind, recipientId, actorName: actor?.name ?? null, webOrigin, project, role: role?.title ?? payload.role };
+      return { kind, recipientId, actorName: actor?.name ?? null, webOrigin, project, role: role?.title ?? payload.role, due: payload.due };
     }
 
     const task = await this.prisma.task.findUnique({

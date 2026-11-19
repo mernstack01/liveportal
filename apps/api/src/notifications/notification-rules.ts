@@ -13,7 +13,7 @@ interface IncidentPayload {
   changes?: { status?: unknown; severity?: unknown; owner?: { from: string | null; to: string | null } };
 }
 
-export type NotificationKind = 'claimed' | 'assigned' | 'mentioned' | 'commented' | 'review' | 'added' | 'overdue' | 'digest' | 'chat_mention' | 'client_message' | IncidentKind | DealKind;
+export type NotificationKind = 'claimed' | 'assigned' | 'mentioned' | 'commented' | 'review' | 'added' | 'overdue' | 'digest' | 'chat_mention' | 'client_message' | 'project_due' | IncidentKind | DealKind;
 
 /** Kelishuv eventlari payload'i (DealsService, DealStepJob). */
 interface DealPayload {
@@ -163,6 +163,9 @@ export class NotificationRules implements OnModuleInit {
     this.bus.subscribe('deal.ready', 'notify:deal-ready', async (e, tx) => this.enqueue(tx, e, 'deal_ready', await dealSupervisors(tx, e.workspaceId)));
 
     this.bus.subscribe('user.digest', 'notify:digest', (e, tx) => this.enqueue(tx, e, 'digest', [e.entityId]));
+
+    // Loyiha muddati o'zgardi (sabab bilan): rahbarga.
+    this.bus.subscribe('project.due_changed', 'notify:project-due', async (e, tx) => this.enqueue(tx, e, 'project_due', await dealSupervisors(tx, e.workspaceId)));
 
     this.bus.subscribe('project.member_added', 'notify:added', (e, tx) => {
       const p = e.payload as unknown as { userId: string };

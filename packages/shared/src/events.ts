@@ -10,6 +10,8 @@ export const EVENT_TYPES = [
   'project.member_removed',
   'project.updated',
   'project.status_changed',
+  /** Muddat o'zgardi (sabab bilan): payload.due { from, to, reason }. */
+  'project.due_changed',
   'task.created',
   'task.updated',
   'task.assigned',

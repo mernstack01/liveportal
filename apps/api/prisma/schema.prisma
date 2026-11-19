@@ -29,21 +29,22 @@ model User {
   workspaces        WorkspaceMember[]
   projects          ProjectMember[]
   taskAssignments   TaskAssignee[]
-  reportedIncidents Incident[]        @relation("incidentReporter")
-  ownedIncidents    Incident[]        @relation("incidentOwner")
+  reportedIncidents Incident[]         @relation("incidentReporter")
+  ownedIncidents    Incident[]         @relation("incidentOwner")
   incidentUpdates   IncidentUpdate[]
-  ownedDeals        Deal[]            @relation("dealOwner")
-  createdDeals      Deal[]            @relation("dealCreator")
-  paymentsAdded     DealPayment[]     @relation("paymentCreator")
-  paymentsConfirmed DealPayment[]     @relation("paymentConfirmer")
+  ownedDeals        Deal[]             @relation("dealOwner")
+  createdDeals      Deal[]             @relation("dealCreator")
+  paymentsAdded     DealPayment[]      @relation("paymentCreator")
+  paymentsConfirmed DealPayment[]      @relation("paymentConfirmer")
+  projectDueChanges ProjectDueChange[]
   dealActivities    DealActivity[]
-  reportedTasks     Task[]            @relation("reporter")
+  reportedTasks     Task[]             @relation("reporter")
   comments          Comment[]
   messages          Message[]
   notifications     Notification[]
   sessions          Session[]
-  invitesCreated    Invite[]          @relation("inviteCreator")
-  invitesUsed       Invite[]          @relation("inviteUser")
+  invitesCreated    Invite[]           @relation("inviteCreator")
+  invitesUsed       Invite[]           @relation("inviteUser")
 }
 
 model Workspace {
@@ -170,14 +171,15 @@ model Project {
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
 
-  workspace Workspace        @relation(fields: [workspaceId], references: [id])
-  members   ProjectMember[]
-  statuses  WorkflowStatus[]
-  tasks     Task[]
-  channels  Channel[]
-  incidents Incident[]
-  deal      Deal?
-  invites   Invite[]
+  workspace  Workspace          @relation(fields: [workspaceId], references: [id])
+  members    ProjectMember[]
+  statuses   WorkflowStatus[]
+  tasks      Task[]
+  channels   Channel[]
+  incidents  Incident[]
+  deal       Deal?
+  invites    Invite[]
+  dueChanges ProjectDueChange[]
 
   @@unique([workspaceId, key])
 }
@@ -644,4 +646,21 @@ enum PaymentStatus {
   PENDING // naqd: rahbar tasdig'ini kutmoqda
   CONFIRMED
   REJECTED
+}
+
+/// Loyiha muddati o'zgarishi: kim, qachon, qaysi sanadan qaysiga va nima uchun (rahbar ko'radi).
+model ProjectDueChange {
+  id        String    @id @default(cuid())
+  projectId String
+  authorId  String
+  from      DateTime? @db.Date
+  to        DateTime? @db.Date
+  reason    String
+  createdAt DateTime  @default(now())
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  author  User    @relation(fields: [authorId], references: [id])
+
+  @@index([projectId, createdAt])
+  @@index([createdAt])
 }

@@ -12,6 +12,7 @@ import { NotificationSender } from '../src/notifications/notification.sender.js'
 import { TelegramGateway } from '../src/notifications/telegram.gateway.js';
 import { DealStepJob } from '../src/scheduler/deal-step.job.js';
 import { InvitesService } from '../src/invites/invites.service.js';
+import { dealDigestLines } from '../src/notifications/deal-digest.js';
 
 /** boss — rahbar; sales/sales2 — A'zo + "Savdo"; dev — oddiy a'zo; admin — admin (savdo yo'q). */
 type Who = 'boss' | 'sales' | 'sales2' | 'dev' | 'admin';
@@ -37,6 +38,8 @@ describe('Kelishuvlar (e2e)', () => {
   const dealIds: string[] = [];
   /** Taklifni qabul qilib qo'shilgan mijoz (tozalash uchun). */
   const extraUsers: string[] = [];
+  /** Kelishuvdan ochilgan loyiha (4-bosqich testlari uchun). */
+  let startedProjectId = '';
 
   const http = () => request(app.getHttpServer());
   const as = (w: Who) => ({ Authorization: `Bearer ${users[w].token}` });
@@ -295,6 +298,7 @@ describe('Kelishuvlar (e2e)', () => {
 
     const res = await http().post(`/api/v1/deals/${dealIds[0]}/start`).set(as('boss')).send({ key, inviteClient: true }).expect(201);
     expect(res.body.project).toMatchObject({ key, name: `USTA do‘kon ${run}` });
+    startedProjectId = res.body.project.id;
     expect(res.body.clientInviteLink).toMatch(/^https:\/\/t\.me\/liveportal_test_bot\?start=inv_/);
     await http().post(`/api/v1/deals/${dealIds[0]}/start`).set(as('boss')).send({ key: `E${run}`.slice(0, 10) }).expect(409);
 
@@ -320,5 +324,59 @@ describe('Kelishuvlar (e2e)', () => {
     const messages = sent();
     expect(messages.find((m) => m.to === 'sales' && m.text.includes('Yutildi'))).toBeTruthy();
     expect(messages.find((m) => m.to === 'sales' && m.text.includes('loyihasiga qo‘shdi'))).toBeTruthy();
+  });
+
+  it('loyiha muddati: o‘zgartirish — sabab bilan, tarix saqlanadi, rahbarga xabar', async () => {
+    const url = `/api/v1/projects/${startedProjectId}`;
+    const before = await http().get(url).set(as('sales')).expect(200);
+    expect(before.body.dueDate).toMatch(/^2026-12-30/); // kelishuvdagi topshirish sanasi
+    await http().patch(url).set(as('sales')).send({ dueDate: '2027-01-15' }).expect(400);
+    await http().patch(url).set(as('sales')).send({ dueDate: '2027-01-15', dueReason: 'Mijoz yangi bo‘lim qo‘shdi' }).expect(200);
+    await http().patch(url).set(as('sales')).send({ name: `USTA do‘kon ${run}` }).expect(200); // boshqa maydon — sababsiz
+
+    const after = await http().get(url).set(as('sales')).expect(200);
+    expect(after.body.dueChanges).toEqual([expect.objectContaining({ from: '2026-12-30', to: '2027-01-15', reason: 'Mijoz yangi bo‘lim qo‘shdi', author: expect.objectContaining({ userId: users.sales.id }) })]);
+    const asBoss = await http().get(url).set(as('boss')).expect(200);
+    expect(asBoss.body.deal).toMatchObject({ number: expect.any(Number) });
+    expect(after.body.deal).toBeNull(); // savdochi loyiha orqali pulni ko'rmaydi
+
+    await flush();
+    const msg = sent().find((m) => m.to === 'boss' && m.text.includes('muddatini o‘zgartirdi'));
+    expect(msg?.text).toContain('30.12.2026 → <b>15.01.2027</b>');
+    expect(msg?.text).toContain('Sabab: Mijoz yangi bo‘lim qo‘shdi');
+  });
+
+  it('rahbar paneli: pul, bosqichlar, qarzdorlik, qotib qolganlar, muddat o‘zgarishlari', async () => {
+    await http().get('/api/v1/deals/summary').set(as('sales')).expect(403);
+    const res = await http().get('/api/v1/deals/summary').set(as('boss')).expect(200);
+    const body = res.body;
+    // USTA yutildi: 140 mln dan 70 mln tushgan → qarz 70 mln.
+    expect(body.debtors).toEqual(expect.arrayContaining([expect.objectContaining({ title: `USTA do‘kon ${run}`, remaining: '70000000', currency: 'UZS' })]));
+    expect(body.pipeline.map((p: { stage: string }) => p.stage)).toEqual(['NEW', 'DISCUSSION', 'PROPOSAL', 'CONTRACT', 'ADVANCE']);
+    expect(body.month.won).toBeGreaterThanOrEqual(1);
+    expect(body.dueChanges).toEqual(expect.arrayContaining([expect.objectContaining({ kind: 'project', to: '2027-01-15', reason: 'Mijoz yangi bo‘lim qo‘shdi' })]));
+    expect(body.dueChanges).toEqual(expect.arrayContaining([expect.objectContaining({ kind: 'deal', from: '2026-12-20', to: '2026-12-30' })]));
+    expect(body.money).toHaveProperty('receivedThisMonth');
+
+    // GISHT (sales2, $2500) — qadami eskirgan bo'lsa "qotib qolgan"da.
+    await prisma.deal.update({ where: { id: dealIds[1] }, data: { nextStepAt: new Date(Date.now() - 48 * 3_600_000) } });
+    const again = await http().get('/api/v1/deals/summary').set(as('boss')).expect(200);
+    expect(again.body.stale).toEqual(expect.arrayContaining([expect.objectContaining({ title: `GISHT ${run}`, owner: expect.objectContaining({ userId: users.sales2.id }) })]));
+    expect(again.body.owners).toEqual(expect.arrayContaining([expect.objectContaining({ userId: users.sales2.id, active: 1, sums: { USD: '2500' } })]));
+  });
+
+  it('ertalabki xulosa: savdochiga bugungi qadamlar, rahbarga naqd va qotib qolganlar', async () => {
+    await prisma.deal.update({ where: { id: dealIds[1] }, data: { nextStepAt: new Date(Date.now() - 60_000) } });
+    const cash = await http().post(`/api/v1/deals/${dealIds[1]}/payments`).set(as('sales2')).field('amount', '500').field('method', 'CASH').expect(201);
+
+    const forSales2 = await dealDigestLines(prisma, users.sales2.id);
+    expect(forSales2.join('\n')).toContain(`GISHT ${run}`);
+    const forBoss = (await dealDigestLines(prisma, users.boss.id)).join('\n');
+    expect(forBoss).toMatch(/Tasdiq kutayotgan naqd to‘lovlar: <b>\d+<\/b>/);
+    expect(await dealDigestLines(prisma, users.dev.id)).toEqual([]);
+
+    await http().post(`/api/v1/deals/payments/${cash.body.id}/reject`).set(as('boss')).send({ reason: 'test' }).expect(201);
+    await flush();
+    telegram.sent.length = 0;
   });
 });

@@ -6,6 +6,7 @@ import { useDashboard } from '../queries'
 import type { Dashboard, StatusCategory } from '../types'
 import { incidentDuration, SEVERITY_INFO, STATUS_INFO } from '../incidents/labels'
 import { NotFoundPage } from './NotFoundPage'
+import { SalesOverview } from '../deals/SalesOverview'
 
 /**
  * Bosqichlar tartibli (To do → Done), shuning uchun bitta ko'k tusning och→to'q pog'onalari:
@@ -122,6 +123,8 @@ export function DashboardPage() {
           Bugun {formatDay(d.today)} · hafta {formatDay(d.weekStart)} dan · har daqiqada yangilanadi
         </p>
       </div>
+
+      {can('deal.view_all') && <SalesOverview />}
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
         <Tile label="Faol loyihalar" value={d.summary.activeProjects} />

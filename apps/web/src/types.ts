@@ -49,6 +49,10 @@ export interface ProjectDetail extends Omit<ProjectSummary, 'memberCount'> {
   myPermissions: string[]
   /** Hal qilinmagan insidentlar soni; insidentlarni ko'ra olmaydiganda null. */
   openIncidents: number | null
+  /** Muddat o'zgarishlari (yangisi birinchi); mijozga bo'sh. */
+  dueChanges?: { id: string; from: string | null; to: string | null; reason: string; createdAt: string; author: { userId: string; name: string } }[]
+  /** Kelishuvdan ochilgan bo'lsa — faqat rahbarga (pulni ko'radiganga). */
+  deal?: { number: number; key: string } | null
 }
 
 export interface Task {

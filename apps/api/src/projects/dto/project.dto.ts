@@ -30,6 +30,8 @@ export const updateProjectSchema = z
     description: z.string().trim().max(5000).nullable(),
     startDate: dateOnly.nullable(),
     dueDate: dateOnly.nullable(),
+    /** Muddat o'zgarsa — majburiy (avval muddat qo'yilgan bo'lsa). Rahbarga boradi. */
+    dueReason: z.string().trim().min(1).max(1000),
     status: z.enum(PROJECT_STATUSES),
   })
   .partial()

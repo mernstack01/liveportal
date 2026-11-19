@@ -57,9 +57,25 @@ export class ProjectsService {
     const openIncidents = project.permissions.includes('incident.view')
       ? await this.repo.prisma.incident.count({ where: { projectId: project.id, status: { not: 'RESOLVED' } } })
       : null;
+    // Muddat tarixi — xodimlarga (mijozga emas); kelishuv havolasi — faqat pulni ko'radigan rahbarga.
+    const staff = project.permissions.includes('task.view');
+    const [dueChanges, deal] = await Promise.all([
+      staff
+        ? this.repo.prisma.projectDueChange.findMany({
+            where: { projectId: project.id },
+            orderBy: { createdAt: 'desc' },
+            take: 20,
+            select: { id: true, from: true, to: true, reason: true, createdAt: true, author: { select: { id: true, name: true } } },
+          })
+        : [],
+      project.permissions.includes('deal.view_all') ? this.repo.prisma.deal.findUnique({ where: { projectId: project.id }, select: { number: true } }) : null,
+    ]);
+    const day = (d: Date | null) => (d ? d.toISOString().slice(0, 10) : null);
     return {
       ...summary(p),
       openIncidents,
+      dueChanges: dueChanges.map((c) => ({ id: c.id, from: day(c.from), to: day(c.to), reason: c.reason, createdAt: c.createdAt, author: { userId: c.author.id, name: c.author.name } })),
+      deal: deal ? { number: deal.number, key: `K-${deal.number}` } : null,
       statuses: p.statuses,
       members: p.members.map(toMember),
       myRole: project.role,
@@ -117,10 +133,22 @@ export class ProjectsService {
       throw new BadRequestException('Muddat boshlanish sanasidan oldin bo‘lishi mumkin emas');
     }
 
+    const day = (d: Date | null) => (d ? d.toISOString().slice(0, 10) : null);
+    const dueChanged = dto.dueDate !== undefined && day(dto.dueDate) !== day(current.dueDate);
+    // Birinchi marta qo'yilsa — sababsiz; mavjud muddat o'zgarsa — sabab majburiy (rahbar ko'radi).
+    if (dueChanged && current.dueDate && !dto.dueReason) throw new BadRequestException('Muddat nima uchun o‘zgarayotganini yozing');
+    const { dueReason, ...fields } = dto;
+
     await this.repo.prisma.$transaction(async (tx) => {
-      await this.repo.update(tx, project.id, dto);
+      await this.repo.update(tx, project.id, fields);
       const base = { workspaceId: project.workspaceId, actorId: userId, entityType: 'project', entityId: project.id } as const;
-      await recordEvent(tx, { ...base, type: 'project.updated', payload: { fields: Object.keys(dto) } });
+      await recordEvent(tx, { ...base, type: 'project.updated', payload: { fields: Object.keys(fields) } });
+      if (dueChanged) {
+        await tx.projectDueChange.create({ data: { projectId: project.id, authorId: userId, from: current.dueDate, to: dto.dueDate ?? null, reason: dueReason ?? 'Birinchi marta qo‘yildi' } });
+        if (current.dueDate) {
+          await recordEvent(tx, { ...base, type: 'project.due_changed', payload: { due: { from: day(current.dueDate), to: day(dto.dueDate ?? null), reason: dueReason ?? null } } });
+        }
+      }
       if (statusChanged) {
         await recordEvent(tx, { ...base, type: 'project.status_changed', payload: { from: current.status, to: dto.status } });
       }

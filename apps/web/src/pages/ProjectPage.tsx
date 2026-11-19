@@ -8,8 +8,9 @@ import { IncidentsPanel } from '../incidents/IncidentsPanel'
 import { usePageTour } from '../onboarding/state'
 import { clientProjectTour, TOURS } from '../onboarding/tours'
 import { MembersDialog } from '../components/MembersDialog'
+import { ProjectDueDate } from '../components/ProjectDueDate'
 import { Avatar, Badge, ErrorText, Spinner } from '../components/ui'
-import { formatDay, PROJECT_STATUS_LABELS, PROJECT_STATUS_STYLES } from '../labels'
+import { PROJECT_STATUS_LABELS, PROJECT_STATUS_STYLES } from '../labels'
 import { useMe } from '../me'
 import { keys, useProject } from '../queries'
 import type { ProjectDetail, ProjectStatus } from '../types'
@@ -103,13 +104,7 @@ export function ProjectPage({ tab = 'board' }: { tab?: ProjectTab }) {
             <StatusControl project={p} />
           </div>
           {p.description && <p className="max-w-3xl text-sm text-slate-600">{p.description}</p>}
-          {(p.startDate || p.dueDate) && (
-            <p className="text-xs text-slate-500">
-              {p.startDate && `Boshlangan: ${formatDay(p.startDate)}`}
-              {p.startDate && p.dueDate && ' · '}
-              {p.dueDate && `Muddat: ${formatDay(p.dueDate)}`}
-            </p>
-          )}
+          <ProjectDueDate key={`${p.id}:${p.dueDate ?? ''}`} project={p} />
         </div>
         <button
           data-tour="project-members"

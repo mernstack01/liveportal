@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { recordEvent } from '../events/outbox.js';
 import { PrismaService } from '../db/prisma.service.js';
+import { dealDigestRecipients } from '../notifications/deal-digest.js';
 import { addDays, dayStart, localDay } from '../tasks/due.js';
 
 const CLOSED = ['DONE', 'CANCELED'] as const;
@@ -82,6 +83,8 @@ export class MorningJob {
           select: { userId: true, task: { select: { project: { select: { workspaceId: true } } } } },
         });
         const recipients = new Map(due.map((a) => [`${a.task.project.workspaceId}:${a.userId}`, { workspaceId: a.task.project.workspaceId, userId: a.userId }]));
+        // Savdo: bugungi qadamlari bor savdochilar va (naqd tasdig'i yoki qotib qolgan kelishuv bo'lsa) rahbar.
+        for (const r of await dealDigestRecipients(tx, now)) recipients.set(`${r.workspaceId}:${r.userId}`, r);
         for (const r of recipients.values()) {
           await recordEvent(tx, {
             workspaceId: r.workspaceId,

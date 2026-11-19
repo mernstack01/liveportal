@@ -41,6 +41,8 @@ export interface MessageInput {
   chatFiles?: number;
   /** Qaysi chat: 'internal' (Jamoa) yoki 'client' (Mijoz bilan). */
   chatKind?: 'internal' | 'client';
+  /** Loyiha muddati o'zgarishi (kind 'project_due'). */
+  due?: { from: string | null; to: string | null; reason: string | null };
 }
 
 /** Zaxira: odatda sender rolning bazadagi nomini (title) beradi. */
@@ -98,6 +100,13 @@ export function renderMessage(input: MessageInput): RenderedMessage {
         (input.chatFiles ? `\n📎 ${input.chatFiles} ta fayl` : ''),
       buttons: [openButton(input.webOrigin, `/projects/${input.project.id}/${client ? 'client-chat' : 'chat'}`)].filter((r) => r.length > 0),
     };
+  }
+
+  if (input.kind === 'project_due' && input.project) {
+    const fmt = (d: string | null | undefined) => (d ? d.split('-').reverse().join('.') : 'muddatsiz');
+    const lines = [`📅 ${actor} <b>${escapeHtml(input.project.name)}</b> loyihasi muddatini o‘zgartirdi`, `${fmt(input.due?.from)} → <b>${fmt(input.due?.to)}</b>`];
+    if (input.due?.reason) lines.push(`Sabab: ${escapeHtml(input.due.reason)}`);
+    return { text: lines.join('\n'), buttons: [openButton(input.webOrigin, `/projects/${input.project.id}`)].filter((r) => r.length > 0) };
   }
 
   if (input.kind === 'added' && input.project) {
