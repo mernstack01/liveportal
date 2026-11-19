@@ -19,6 +19,7 @@ const INVITE_ERRORS: Record<InviteErrorCode, string> = {
   not_found: 'Taklif havolasi noto‘g‘ri. Uni sizga yuborgan odamdan qayta so‘rang.',
   used: 'Bu havola allaqachon ishlatilgan. Har bir odam uchun alohida havola beriladi.',
   expired: 'Havolaning muddati tugagan. Yangisini so‘rang.',
+  already_member: 'Siz allaqachon jamoadasiz — rolingiz o‘zgarmadi. Bu havola boshqa odam uchun: uni o‘sha odamga yuboring (havola hali ishlaydi).',
 };
 
 /**

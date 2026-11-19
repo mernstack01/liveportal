@@ -7,7 +7,7 @@ import type { Env } from '../config/env.js';
 import { PrismaService } from '../db/prisma.service.js';
 import { createInviteRecord, inviteLink } from './invite-record.js';
 
-export type InviteErrorCode = 'not_found' | 'used' | 'expired';
+export type InviteErrorCode = 'not_found' | 'used' | 'expired' | 'already_member';
 
 export class InviteError extends Error {
   constructor(readonly code: InviteErrorCode) {
@@ -90,6 +90,16 @@ export class InvitesService {
         create: { name, telegramId: BigInt(tg.id), telegramUsername: tg.username ?? null },
       });
 
+      // Allaqachon jamoada: rol o'zgarmaydi (aks holda rahbar boshqaga atalgan havolani ochib, o'zini admin qilib qo'yardi).
+      // Havola ishlatilmagan bo'lib qoladi — u kimga atalgan bo'lsa, o'sha odam ochadi.
+      // Istisno: mijoz yangi loyihaga taklif qilinsa — o'sha loyiha chatiga qo'shiladi.
+      const existing = await tx.workspaceMember.findUnique({
+        where: { workspaceId_userId: { workspaceId: invite.workspaceId, userId: user.id } },
+        include: { role: { select: { name: true } } },
+      });
+      const clientToProject = existing?.role.name === 'client' && invite.role.name === 'client' && !!invite.projectId;
+      if (existing && !clientToProject) throw new InviteError('already_member');
+
       // Bir vaqtda ikki marta ishlatilishining oldini olish.
       const marked = await tx.invite.updateMany({
         where: { id: invite.id, usedAt: null },
@@ -97,11 +107,7 @@ export class InvitesService {
       });
       if (marked.count === 0) throw new InviteError('used');
 
-      await tx.workspaceMember.upsert({
-        where: { workspaceId_userId: { workspaceId: invite.workspaceId, userId: user.id } },
-        update: { roleId: invite.roleId },
-        create: { workspaceId: invite.workspaceId, userId: user.id, roleId: invite.roleId },
-      });
+      if (!existing) await tx.workspaceMember.create({ data: { workspaceId: invite.workspaceId, userId: user.id, roleId: invite.roleId } });
 
       // Mijoz taklifi (kelishuvdan loyiha ochilganda): darhol o'sha loyihaning "Mijoz bilan" chatiga.
       if (invite.projectId) {

@@ -89,6 +89,14 @@ describe('Auth va takliflar (e2e)', () => {
     // Bir martalik.
     await expect(invites.accept(invite.token, tgUser)).rejects.toBeInstanceOf(InviteError);
 
+    // A'zo boshqa (masalan, admin) havolani ochsa — roli o'zgarmaydi, havola egasi uchun ochiq qoladi.
+    const adminLink = await createInviteRecord(prisma, { workspaceId, roleName: 'admin', note: 'boshqa odam uchun' });
+    await expect(invites.accept(adminLink.token, tgUser)).rejects.toMatchObject({ code: 'already_member' });
+    const still = await prisma.workspaceMember.findFirstOrThrow({ where: { workspaceId, user: { telegramId: BigInt(ids.member) } }, include: { role: true } });
+    expect(still.role.name).toBe('member');
+    expect((await prisma.invite.findUniqueOrThrow({ where: { id: adminLink.id } })).usedAt).toBeNull();
+    await prisma.invite.delete({ where: { id: adminLink.id } });
+
     const login = await http().post('/api/v1/auth/telegram/widget').send(signedWidget(ids.member, 'Aziz')).expect(200);
     const access = login.body.accessToken as string;
     const cookie1 = refreshCookie(login);
