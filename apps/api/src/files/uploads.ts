@@ -43,7 +43,7 @@ async function head(path: string): Promise<Buffer> {
  * Diskka tushgan fayllardan Attachment qatorlari. Rasm turi baytlardan aniqlanadi
  * (nomi yoki brauzer aytgan tur emas): "surat.png" deb nomlangan HTML rasm sifatida berilmaydi.
  */
-export function attachmentRows(files: Express.Multer.File[], owner: { workspaceId: string; projectId: string; uploaderId: string }) {
+export function attachmentRows(files: Express.Multer.File[], owner: { workspaceId: string; projectId: string | null; uploaderId: string }) {
   return Promise.all(
     files.map(async (f) => {
       const image = sniffImage(await head(f.path));

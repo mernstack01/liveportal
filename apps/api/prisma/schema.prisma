@@ -32,6 +32,9 @@ model User {
   reportedIncidents Incident[]        @relation("incidentReporter")
   ownedIncidents    Incident[]        @relation("incidentOwner")
   incidentUpdates   IncidentUpdate[]
+  ownedDeals        Deal[]            @relation("dealOwner")
+  createdDeals      Deal[]            @relation("dealCreator")
+  dealActivities    DealActivity[]
   reportedTasks     Task[]            @relation("reporter")
   comments          Comment[]
   messages          Message[]
@@ -48,13 +51,16 @@ model Workspace {
   settings  Json     @default("{}") // feature flags, til, default workflow ...
   createdAt DateTime @default(now())
 
-  members  WorkspaceMember[]
-  roles    Role[]
-  projects Project[]
-  channels Channel[]
-  rules    NotificationRule[]
-  events   Event[]
-  invites  Invite[]
+  members     WorkspaceMember[]
+  roles       Role[]
+  projects    Project[]
+  channels    Channel[]
+  rules       NotificationRule[]
+  events      Event[]
+  invites     Invite[]
+  deals       Deal[]
+  /// Kelishuv raqamlari (K-1, K-2 ...) workspace bo'yicha.
+  dealCounter Int                @default(0)
 }
 
 model Role {
@@ -66,7 +72,7 @@ model Role {
   permissions String[] // ['project.create', 'task.assign', ...]
   isSystem    Boolean   @default(false)
 
-  workspace        Workspace         @relation(fields: [workspaceId], references: [id])
+  workspace        Workspace             @relation(fields: [workspaceId], references: [id])
   workspaceMembers WorkspaceMember[]
   extraMembers     WorkspaceMemberRole[]
   projectMembers   ProjectMember[]
@@ -86,9 +92,9 @@ model WorkspaceMember {
   roleId      String
   joinedAt    DateTime @default(now())
 
-  workspace Workspace @relation(fields: [workspaceId], references: [id])
-  user      User      @relation(fields: [userId], references: [id])
-  role      Role      @relation(fields: [roleId], references: [id])
+  workspace  Workspace             @relation(fields: [workspaceId], references: [id])
+  user       User                  @relation(fields: [userId], references: [id])
+  role       Role                  @relation(fields: [roleId], references: [id])
   extraRoles WorkspaceMemberRole[]
 
   @@id([workspaceId, userId])
@@ -391,9 +397,10 @@ model Message {
 model Attachment {
   id               String   @id @default(cuid())
   workspaceId      String
-  projectId        String
+  projectId        String? // kelishuv fayllarida yo'q (kelishuv loyihadan oldin bo'ladi)
   messageId        String?
   incidentUpdateId String? // insident xronologiyasidagi yangilanishga biriktirilgan
+  dealActivityId   String? // kelishuv tarixidagi yozuvga (shartnoma, chek, TZ)
   uploaderId       String
   fileName         String // asl nomi (ko'rsatish uchun)
   mimeType         String // baytlardan aniqlangan rasm turi yoki yuklagan bergani
@@ -404,9 +411,11 @@ model Attachment {
 
   message        Message?        @relation(fields: [messageId], references: [id])
   incidentUpdate IncidentUpdate? @relation(fields: [incidentUpdateId], references: [id], onDelete: Cascade)
+  dealActivity   DealActivity?   @relation(fields: [dealActivityId], references: [id], onDelete: Cascade)
 
   @@index([messageId])
   @@index([incidentUpdateId])
+  @@index([dealActivityId])
 }
 
 enum MessageSource {
@@ -493,4 +502,85 @@ model TaskAssignee {
 
   @@id([taskId, userId])
   @@index([userId])
+}
+
+/// Kelishuv (savdo): loyiha boshlanishidan oldingi jarayon — so'rovdan avansgacha. Yutilsa, loyihaga aylanadi.
+/// Faqat `deal.manage` (o'zi mas'ul bo'lganlari) va `deal.view_all` (hammasi) ko'radi.
+model Deal {
+  id              String     @id @default(cuid())
+  workspaceId     String
+  number          Int // K-<number>
+  title           String
+  clientName      String
+  clientContact   String? // telefon, @telegram, ...
+  source          DealSource @default(OTHER)
+  description     String? // nima so'rayapti (ish hajmi)
+  amount          Decimal?   @db.Decimal(14, 2)
+  currency        Currency   @default(UZS)
+  stage           DealStage  @default(NEW)
+  ownerId         String? // mas'ul (savdochi)
+  createdById     String
+  /// Keyingi qadam: har faol kelishuvda majburiy. Vaqti o'tsa — mas'ulga, 24 soatdan keyin rahbarga xabar.
+  nextStep        String?
+  nextStepAt      DateTime?
+  stepRemindedAt  DateTime?
+  stepEscalatedAt DateTime?
+  dueDate         DateTime?  @db.Date // mijoz kutayotgan topshirish sanasi; o'zgartirish — sabab bilan
+  lostReason      String?
+  stageChangedAt  DateTime   @default(now())
+  closedAt        DateTime?
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
+  workspace  Workspace      @relation(fields: [workspaceId], references: [id])
+  owner      User?          @relation("dealOwner", fields: [ownerId], references: [id])
+  createdBy  User           @relation("dealCreator", fields: [createdById], references: [id])
+  activities DealActivity[]
+
+  @@unique([workspaceId, number])
+  @@index([workspaceId, stage])
+  @@index([ownerId])
+}
+
+enum DealStage {
+  NEW // yangi so'rov
+  DISCUSSION // muhokama
+  PROPOSAL // taklif yuborildi
+  CONTRACT // shartnoma
+  ADVANCE // avans kutilmoqda
+  WON // yutildi (loyiha ochildi)
+  LOST // yo'qotildi
+}
+
+enum DealSource {
+  TELEGRAM
+  INSTAGRAM
+  REFERRAL // tanish orqali
+  WEBSITE
+  CALL
+  OTHER
+}
+
+enum Currency {
+  UZS
+  USD
+}
+
+/// Kelishuv tarixi: qo'ng'iroq, uchrashuv, izoh (fayllar bilan) va avtomatik yozuvlar (bosqich, mas'ul, muddat...).
+model DealActivity {
+  id        String   @id @default(cuid())
+  dealId    String
+  authorId  String?
+  /// created | note | call | meeting | stage | owner | step | due | amount
+  kind      String
+  body      String?
+  from      String?
+  to        String?
+  createdAt DateTime @default(now())
+
+  deal        Deal         @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  author      User?        @relation(fields: [authorId], references: [id])
+  attachments Attachment[]
+
+  @@index([dealId, createdAt])
 }

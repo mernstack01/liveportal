@@ -107,7 +107,9 @@ describe('Xodimlarni boshqarish (e2e)', () => {
     await http().patch(member('dev')).set(as('admin')).send({ role: 'sales' }).expect(400); // qo'shimcha rol asosiy bo'lolmaydi
     await http().post('/api/v1/invites').set(as('admin')).send({ role: 'sales' }).expect(403);
 
-    const res = await http().put(extra('dev')).set(as('admin')).send({ roles: ['sales'] }).expect(200);
+    // "Savdo"ni faqat rahbar beradi (admin'da savdo ruxsati yo'q).
+    await http().put(extra('dev')).set(as('admin')).send({ roles: ['sales'] }).expect(403);
+    const res = await http().put(extra('dev')).set(as('owner')).send({ roles: ['sales'] }).expect(200);
     expect(res.body).toEqual({ userId: users.dev.id, extraRoles: ['sales'] });
     const me = await http().get('/api/v1/auth/me').set(as('dev')).expect(200);
     expect(me.body.workspaces[0]).toMatchObject({ role: 'member', extraRoles: ['sales'] });
@@ -126,15 +128,15 @@ describe('Xodimlarni boshqarish (e2e)', () => {
     await prisma.role.create({ data: { workspaceId, name: `kassa_${run.toLowerCase()}`, title: 'Kassa', scope: 'WORKSPACE', permissions: ['payment.confirm'] } });
     await http().put(extra('dev2')).set(as('admin')).send({ roles: [`kassa_${run.toLowerCase()}`] }).expect(403);
     await http().put(extra('dev2')).set(as('owner')).send({ roles: ['sales', `kassa_${run.toLowerCase()}`] }).expect(200);
-    await http().put(extra('dev2')).set(as('admin')).send({ roles: ['sales'] }).expect(403);
+    await http().put(extra('dev2')).set(as('admin')).send({ roles: [] }).expect(403);
     await http().put(extra('dev2')).set(as('owner')).send({ roles: [] }).expect(200);
 
     // Mijozga aylantirilsa, qo'shimcha rollar olinadi va boshqa berilmaydi.
-    await http().put(extra('dev2')).set(as('admin')).send({ roles: ['sales'] }).expect(200);
-    await http().patch(member('dev2')).set(as('admin')).send({ role: 'client' }).expect(200);
+    await http().put(extra('dev2')).set(as('owner')).send({ roles: ['sales'] }).expect(200);
+    await http().patch(member('dev2')).set(as('owner')).send({ role: 'client' }).expect(200);
     expect(await prisma.workspaceMemberRole.count({ where: { userId: users.dev2.id } })).toBe(0);
-    await http().put(extra('dev2')).set(as('admin')).send({ roles: ['sales'] }).expect(400);
-    await http().patch(member('dev2')).set(as('admin')).send({ role: 'member' }).expect(200);
+    await http().put(extra('dev2')).set(as('owner')).send({ roles: ['sales'] }).expect(400);
+    await http().patch(member('dev2')).set(as('owner')).send({ role: 'member' }).expect(200);
   });
 
   it('chiqarish: loyihalar, tasklar, insidentdan olinadi; sessiya yopiladi; endi hech narsa ochilmaydi', async () => {
@@ -142,7 +144,9 @@ describe('Xodimlarni boshqarish (e2e)', () => {
     await http().delete(member('dev')).set(as('lead')).expect(403);
     await http().delete(member('owner')).set(as('admin')).expect(403);
 
-    const res = await http().delete(member('dev')).set(as('admin')).expect(200);
+    // dev'da "Savdo" bor: uni faqat rahbar chiqaradi (admin'da savdo ruxsati yo'q).
+    await http().delete(member('dev')).set(as('admin')).expect(403);
+    const res = await http().delete(member('dev')).set(as('owner')).expect(200);
     expect(res.body).toEqual({ userId: users.dev.id, tasks: 1, projects: 1, incidents: 1 });
 
     expect(await prisma.session.count({ where: { userId: users.dev.id, revokedAt: null } })).toBe(0);

@@ -7,6 +7,7 @@ import { ChatModule } from './chat/chat.module.js';
 import { FilesModule } from './files/files.module.js';
 import { IncidentsModule } from './incidents/incidents.module.js';
 import { DashboardModule } from './dashboard/dashboard.module.js';
+import { DealsModule } from './deals/deals.module.js';
 import { DatabaseModule } from './db/database.module.js';
 import { EventsModule } from './events/events.module.js';
 import { HealthController } from './health/health.controller.js';
@@ -29,6 +30,7 @@ import { WorkspaceModule } from './workspace/workspace.module.js';
     RolesModule,
     ProjectsModule,
     TasksModule,
+    DealsModule,
     NotificationsModule,
     SchedulerModule,
     DashboardModule,

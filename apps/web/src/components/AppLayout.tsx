@@ -61,6 +61,11 @@ export function AppLayout() {
                 <span className="hidden sm:inline">Mening tasklarim</span>
               </NavLink>
             )}
+            {(can('deal.manage') || can('deal.view_all')) && (
+              <NavLink data-tour="nav-deals" to="/deals" className={navClass}>
+                Savdo
+              </NavLink>
+            )}
             {can('dashboard.view_all') && (
               <NavLink data-tour="nav-dashboard" to="/dashboard" className={navClass}>
                 Dashboard

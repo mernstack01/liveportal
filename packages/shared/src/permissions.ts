@@ -81,7 +81,8 @@ export const PROJECT_PERMISSIONS: readonly { key: Permission; label: string; gro
 const ALL = PERMISSIONS;
 /** Pul va kelishuvlar ustidan nazorat: faqat rahbarda (admin'da yo'q). */
 export const FINANCE_PERMISSIONS: readonly Permission[] = ['deal.view_all', 'deal.approve', 'payment.confirm'];
-const ADMIN = PERMISSIONS.filter((p) => p !== 'workspace.owner' && !FINANCE_PERMISSIONS.includes(p));
+/** Admin'da savdo ham yo'q: kelishuvlarni rahbar va u "Savdo" rolini bergan odamlar yuritadi. */
+const ADMIN = PERMISSIONS.filter((p) => p !== 'workspace.owner' && p !== 'deal.manage' && !FINANCE_PERMISSIONS.includes(p));
 
 /**
  * Asosiy workspace rollari: har xodimda aynan bittasi. Qolgan workspace rollari (masalan "Savdo") —

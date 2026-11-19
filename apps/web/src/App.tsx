@@ -11,6 +11,8 @@ import { RolesPage } from './pages/RolesPage'
 import { TeamPage } from './pages/TeamPage'
 import { IncidentDrawer } from './incidents/IncidentDrawer'
 import { TaskDrawer } from './task/TaskDrawer'
+import { DealDrawer } from './deals/DealDrawer'
+import { DealsPage } from './deals/DealsPage'
 
 const router = createBrowserRouter([
   {
@@ -30,6 +32,12 @@ const router = createBrowserRouter([
         element: <ProjectPage tab="incidents" />,
         // Telegram'dagi insident xabaridagi "Ochish" shu manzilga olib keladi.
         children: [{ path: ':incidentRef', element: <IncidentDrawer /> }],
+      },
+      {
+        path: '/deals',
+        element: <DealsPage />,
+        // Telegram'dagi kelishuv xabaridagi "Ochish" shu manzilga olib keladi.
+        children: [{ path: ':dealRef', element: <DealDrawer /> }],
       },
       { path: '/my', element: <MyTasksPage /> },
       { path: '/dashboard', element: <DashboardPage /> },

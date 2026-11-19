@@ -25,6 +25,13 @@ export const EVENT_TYPES = [
   'incident.updated',
   /** Xronologiyaga qo'lda yangilanish yozildi. */
   'incident.noted',
+  /** Kelishuvlar (savdo): entityType 'deal'. */
+  'deal.created',
+  /** Bosqich, mas'ul, muddat yoki summa o'zgardi (payload.changes). */
+  'deal.updated',
+  /** Keyingi qadam vaqti keldi (mas'ulga) va 24 soat o'tib ham yangilanmadi (rahbarga). */
+  'deal.step_due',
+  'deal.step_overdue',
   'message.posted',
   'message.external_received',
 ] as const;

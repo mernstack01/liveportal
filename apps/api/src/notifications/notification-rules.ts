@@ -1,6 +1,8 @@
 import { Injectable, OnModuleInit } from '@nestjs/common';
 import { EventBus } from '../events/event-bus.js';
 import type { Event, Prisma } from '../generated/prisma/client.js';
+import { dealSupervisors } from '../deals/deals.service.js';
+import type { DealKind } from './deal-message.js';
 import type { IncidentKind } from './incident-message.js';
 
 /** Insident eventlari payload'i (IncidentsService). */
@@ -11,7 +13,14 @@ interface IncidentPayload {
   changes?: { status?: unknown; severity?: unknown; owner?: { from: string | null; to: string | null } };
 }
 
-export type NotificationKind = 'claimed' | 'assigned' | 'mentioned' | 'commented' | 'review' | 'added' | 'overdue' | 'digest' | 'chat_mention' | 'client_message' | IncidentKind;
+export type NotificationKind = 'claimed' | 'assigned' | 'mentioned' | 'commented' | 'review' | 'added' | 'overdue' | 'digest' | 'chat_mention' | 'client_message' | IncidentKind | DealKind;
+
+/** Kelishuv eventlari payload'i (DealsService, DealStepJob). */
+interface DealPayload {
+  number: number;
+  ownerId: string | null;
+  changes?: { owner?: { from: string | null; to: string | null }; stage?: unknown; due?: unknown };
+}
 
 /** Task eventlari payload'i (TasksService.taskEvent). */
 interface TaskPayload {
@@ -111,6 +120,32 @@ export class NotificationRules implements OnModuleInit {
       const p = e.payload as unknown as IncidentPayload;
       return this.enqueue(tx, e, 'incident_note', [p.ownerId, p.reporterId]);
     });
+
+    // Kelishuvlar: rahbar(lar) hammasini biladi; mas'ul — o'ziga tegishlisini.
+    this.bus.subscribe('deal.created', 'notify:deal-created', async (e, tx) => {
+      const p = e.payload as unknown as DealPayload;
+      // Rahbar boshqa odamga biriktirib yaratsa: o'sha odamga "mas'ul qildi", qolgan rahbarlarga "yangi so'rov".
+      if (p.ownerId && p.ownerId !== e.actorId) await this.enqueue(tx, e, 'deal_owner', [p.ownerId]);
+      const supervisors = await dealSupervisors(tx, e.workspaceId);
+      return this.enqueue(tx, e, 'deal_created', supervisors.filter((id) => id === e.actorId || id !== p.ownerId));
+    });
+
+    this.bus.subscribe('deal.updated', 'notify:deal-updated', async (e, tx) => {
+      const p = e.payload as unknown as DealPayload;
+      const supervisors = await dealSupervisors(tx, e.workspaceId);
+      if (p.changes?.owner?.to) await this.enqueue(tx, e, 'deal_owner', [p.changes.owner.to]);
+      if (p.changes?.stage) await this.enqueue(tx, e, 'deal_stage', [...supervisors, p.ownerId]);
+      if (p.changes?.due) await this.enqueue(tx, e, 'deal_due', [...supervisors, p.ownerId]);
+    });
+
+    this.bus.subscribe('deal.step_due', 'notify:deal-step-due', (e, tx) => {
+      const p = e.payload as unknown as DealPayload;
+      return this.enqueue(tx, e, 'deal_step_due', [p.ownerId]);
+    });
+
+    this.bus.subscribe('deal.step_overdue', 'notify:deal-step-overdue', async (e, tx) =>
+      this.enqueue(tx, e, 'deal_step_overdue', await dealSupervisors(tx, e.workspaceId)),
+    );
 
     this.bus.subscribe('user.digest', 'notify:digest', (e, tx) => this.enqueue(tx, e, 'digest', [e.entityId]));
 

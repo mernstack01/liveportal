@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import type { Env } from '../config/env.js';
 import { localHour } from '../tasks/due.js';
 import { DeadlineJob } from './deadline.job.js';
+import { DealStepJob } from './deal-step.job.js';
 import { MorningJob } from './morning.job.js';
 
 /**
@@ -19,6 +20,7 @@ export class SchedulerService implements OnApplicationBootstrap, OnApplicationSh
   constructor(
     private readonly morning: MorningJob,
     private readonly deadlines: DeadlineJob,
+    private readonly dealSteps: DealStepJob,
     private readonly config: ConfigService<Env, true>,
   ) {}
 
@@ -40,6 +42,7 @@ export class SchedulerService implements OnApplicationBootstrap, OnApplicationSh
     const morning = localHour(now) >= this.config.get('DIGEST_HOUR', { infer: true });
     this.running = (async () => {
       await this.deadlines.run(now);
+      await this.dealSteps.run(now);
       if (morning) await this.morning.run(now);
     })();
     try {

@@ -9,6 +9,7 @@ export const TOURS = {
   project: 'project',
   clientProject: 'client-project',
   incidents: 'incidents',
+  deals: 'deals',
 } as const
 
 const help: TourStep = {
@@ -29,6 +30,9 @@ export function welcomeTour(name: string, can: Can, canManageRoles: boolean): To
     { target: 'project-card', title: 'Loyihaga kirish', body: 'Kartani bosing: ichida tasklar boardi, insidentlar va chat. Kartada a’zolar soni, sizning rolingiz va muddat.' },
     { target: 'new-project', title: 'Yangi loyiha', body: 'Nomi va qisqa kaliti (masalan ITL) bilan. Yaratgan odam loyihaning teamlead’i bo‘ladi va jamoani o‘zi qo‘shadi.' },
     { target: 'nav-my', title: 'Mening tasklarim', body: 'Barcha loyihalardan sizga berilgan ishlar bitta ro‘yxatda: muddati o‘tgan va bugungilari tepada.' },
+    ...(can('deal.manage') || can('deal.view_all')
+      ? [{ target: 'nav-deals', title: 'Savdo', body: 'Loyiha boshlanishidan oldingi hamma narsa: mijoz so‘rovi, muhokama, taklif, shartnoma, avans. Har kelishuvda keyingi qadam bor — unutilmaydi.' }]
+      : []),
     ...(can('dashboard.view_all')
       ? [{ target: 'nav-dashboard', title: 'Dashboard', body: 'Rahbar uchun: hal qilinmagan insidentlar, loyihalar progressi, kechikkan tasklar, kim qanchalik band.' }]
       : []),
@@ -109,6 +113,29 @@ export function incidentsTour(can: Can): TourStep[] {
     {
       title: 'Insident ichida',
       body: `Holat bosqichlari: Ochiq → Tekshirilmoqda → Kuzatuvda → Hal qilindi. Xronologiyaga yangilanish, skrinshot yoki log yozing${can('task.create') ? ', tuzatish ishlarini shu yerdan task qilib bering' : ''}.`,
+    },
+    help,
+  ]
+}
+
+/** Savdo (kelishuvlar) boardi. */
+export function dealsTour(supervisor: boolean): TourStep[] {
+  return [
+    {
+      target: 'deal-summary',
+      title: supervisor ? 'Bir qarashda' : 'Sizning savdongiz',
+      body: 'Nechta faol kelishuv, qancha pul kutilyapti va nechtasi qotib qolgan (keyingi qadami 24 soatdan beri bajarilmagan). “Qotib qolgan”ni bossangiz — faqat ular qoladi.',
+    },
+    { target: 'deal-new', title: 'Yangi kelishuv', body: 'Mijoz murojaat qilishi bilan yozing: kim, nima kerak, taxminiy summa va keyingi qadam (masalan, “ertaga 10:00 da qo‘ng‘iroq”).' },
+    {
+      target: 'deal-column',
+      title: 'Bosqichlar',
+      body: 'Yangi so‘rov → Muhokama → Taklif → Shartnoma → Avans kutilmoqda. Kartani ustundan ustunga sudrang. “Yo‘qotildi” — sababi bilan; “Yutildi” — avans tushib, rahbar “ha” deganda.',
+    },
+    {
+      target: 'deal-card',
+      title: 'Keyingi qadam',
+      body: 'Kartada — navbatdagi ish va vaqti. Vaqti kelsa, bot mas’ulga eslatadi; 24 soatda bajarilmasa — rahbarga. Bajargach: kartani ochib, “✓ Bajarildi” → natija va yangi qadam.',
     },
     help,
   ]
